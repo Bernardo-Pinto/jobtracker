@@ -10,7 +10,13 @@ export async function GET(): Promise<NextResponse<Application[]>> {
 
 // POST /api/application
 export async function POST(request: Request): Promise<NextResponse> {
-    const application = await request.json();
-    await addApplication(application);
-    return NextResponse.json({ message: 'Application added successfully' });
+    try {
+        const application = await request.json();
+        await addApplication(application);
+
+        return NextResponse.json({ message: 'Application added successfully' });
+    } catch (error) {
+        console.error("Error in POST function:", error);
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    }
 }
