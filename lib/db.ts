@@ -23,16 +23,30 @@ export async function getApplications(): Promise<Application[]> {
     return db.all<Application[]>('SELECT * FROM Applications');
 }
 
-// Add a new Application
-export async function addApplication(application: Application)
-    : Promise<void> {
-    const db = await openDb();
-    await db.run(`INSERT INTO Applications 
-        (company, title, link, applied_on, salary_min, salary_max, status, last_step, last_updated, notes) 
-        VALUES (?,?,?,?,?,?,?,?,?)`
-        , [application.company, application.title, application.link, application.applied_on, application.salary_min,
-            application.salary_max, application.status, application.last_step, application.last_updated, application.notes]);
+export async function addApplication(application: Application): Promise<void> {
+    try {
+        console.log("addApplication called with:");
+        console.log(application);
+
+
+        const db = await openDb();
+
+        await db.run(`INSERT INTO applications 
+            (company, title, link, applied_on, salary_min, salary_max, status, last_step, last_updated, notes) 
+            VALUES (?,?,?,?,?,?,?,?,?,?)`, 
+            [
+                application.company, application.title, application.link, application.applied_on, 
+                application.salary_min, application.salary_max, application.status, application.last_step, 
+                application.last_updated, application.notes
+            ]
+        );
+
+        console.log("Insertion successful.");
+    } catch (error) {
+        console.error("Error in addApplication:", error);
+    }
 }
+
 
 // Update an existing application
 export async function updateApplication(application: Application): Promise<void> {
@@ -54,7 +68,7 @@ export async function updateApplication(application: Application): Promise<void>
             application.company,
             application.title,
             application.link,
-            application.applied_on.toISOString(), // Convert Date to string
+            application.applied_on,
             application.salary_min,
             application.salary_max,
             application.status,
