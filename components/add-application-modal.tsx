@@ -45,12 +45,12 @@ export default function AddApplicationModal(
         company: '',
         title: '',
         link: '',
-        applied_on: new Date(), // Will be manually entered
+        applied_on: formatDate(new Date()), // Will be manually entered
         salary_min: null,
         salary_max: null,
         status: statusOptions[0],
         last_step: lastStepOptions[0],
-        last_updated: new Date(), // Will be manually entered
+        last_updated: formatDate(new Date()), // Will be manually entered
         notes: '',
     });
 
@@ -72,14 +72,18 @@ export default function AddApplicationModal(
         const newApplication: Application = {
             ...application,
             id: 0, // The database will auto-generate this
-            applied_on: new Date(parseDate(application.applied_on as unknown as string)),
-            last_updated: parseDate(application.last_updated as unknown as string)
+            applied_on: parseDate(application.applied_on).toISOString(),
+            last_updated: parseDate(application.last_updated).toISOString(),
+            salary_min: application.salary_min ?? 0,
+            salary_max: application.salary_max ?? 0
         };
+        console.log(newApplication)
+        console.log('newApplication: ' + JSON.stringify(newApplication))
 
         // here, call the API with the new application, since we are on client side,
         //  and can't call server side functions from here
         try {
-            const response = await fetch('/api/applications', {
+            const response = await fetch('/api/application', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -88,6 +92,7 @@ export default function AddApplicationModal(
             });
 
             if (!response.ok) {
+                console.log(' error: ' + response.statusText)
                 throw new Error('Failed to add application');
             }
 
@@ -176,7 +181,7 @@ export default function AddApplicationModal(
                             label="Last Updated (dd-mm-yyyy)"
                             fullWidth
                             margin="normal"
-                            value={formatDate(application.last_updated)}
+                            value={application.last_updated}
                             onChange={(e) => handleChange('last_updated', e.target.value)}
                         />
                     </Grid>
@@ -219,7 +224,7 @@ export default function AddApplicationModal(
                             label="Applied On (dd-mm-yyyy)"
                             fullWidth
                             margin="normal"
-                            value={formatDate(application.applied_on)}
+                            value={application.applied_on}
                             onChange={(e) => handleChange('applied_on', e.target.value)}
                         />
                     </Grid>

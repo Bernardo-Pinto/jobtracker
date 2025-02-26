@@ -3,11 +3,11 @@ export interface Application {
     company: string;
     title: string;
     link: string;
-    applied_on: Date;
+    applied_on: string;
     salary_min: number | null;
     salary_max: number | null;
     status: string;
     last_step: string;
-    last_updated: Date;
+    last_updated: string;
     notes: string;
 }
