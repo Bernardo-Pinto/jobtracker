@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useState } from 'react';
+import {useState } from 'react';
 
 import { Button } from "@mui/material"
 import { DataGrid, GridColDef} from '@mui/x-data-grid';
@@ -12,52 +12,109 @@ import {
     GridToolbarFilterButton,
     GridToolbarDensitySelector,
     GridToolbarExport,
+    GridRowModel
 } from '@mui/x-data-grid';
+import Snackbar from '@mui/material/Snackbar';
+import Alert, { AlertProps } from '@mui/material/Alert';
 import AddIcon from '@mui/icons-material/Add';
 import AddApplicationModal from './add-application-modal'; // Import the modal
 import { lastStepOptions, statusOptions } from '../constants/constants';
+import { Application } from '../types';
 
 import applications from '../demo-data/applications-data'
+import { formatDate } from '../lib/utils';
 
-// Dynamically generate valueOptions for company
-const companyOptions = [...new Set(applications.map((row) => row.Company).filter(Boolean))];
 
-const columns: GridColDef[] = [
-    { field: 'id', headerName: 'ID', width: 70 },
-    { field: 'Company', headerName: 'Company', width: 130, type: 'singleSelect', valueOptions: companyOptions },
-    { field: 'Title', headerName: 'Title', width: 200},
-    {
-        field: 'Link',
-        headerName: 'Link',
-        width: 110,
-        renderCell: (params) => (
-            <Button 
-            variant="text" 
-            onClick={() => window.open(params.value, '_blank', 'noopener,noreferrer')}
-            >View Job</Button>
-        ),
-    },
-    { field: 'Applied On', headerName: 'Applied On', width: 120 },
-    { field: 'Salary', headerName: 'Salary', width: 100 },
-    {
-        field: 'Status',
-        headerName: 'Status',
-        width: 130,
-        type: 'singleSelect',
-        valueOptions: statusOptions
-    },
-    {
-        field: 'Last Step',
-        headerName: 'Last Step',
-        width: 150,
-        type: 'singleSelect',
-        valueOptions: lastStepOptions
-    },
-    { field: 'notes', headerName: 'Notes', width: 300 },
-];
+let companyOptions:string[] = []
+let columns: GridColDef[] = []
+
+  
+function setColumns(applicationsData:Application[]){
+
+    companyOptions = [...new Set(applicationsData.map((app) => app.company).filter(Boolean))];
+    
+    const statusColors: Record<string, string> = {
+        Waiting: '#FFD600',         // Yellow
+        Rejected: '#FF1744',        // Red
+        'Needs action': '#2979FF',  // Blue (or use '#00E676' for Green)
+    };
+
+    columns = [
+        { field: 'id', headerName: 'ID', width: 70 },
+        { field: 'company', headerName: 'Company', width: 130, type: 'singleSelect', valueOptions: companyOptions, editable: true },
+        { field: 'title', headerName: 'Title', width: 200, editable: true},
+        {
+            field: 'link',
+            headerName: 'Link',
+            width: 110,
+            editable: true,
+            renderCell: (params) => (
+                <Button 
+                variant="text" 
+                onClick={() => window.open(params.value, '_blank', 'noopener,noreferrer')}
+                >View Job</Button>
+            ),
+        },
+        { field: 'applied_on', headerName: 'Applied On', width: 120, editable: true,
+            renderCell: (params) => {
+              const date = new Date(params.value);
+              if (isNaN(date.getTime())) {
+                return 'Invalid Date';
+              }
+              return formatDate(date);
+          }, },
+        { field: 'salary_min', headerName: 'Salary Min', width: 100, editable: true },
+        { field: 'salary_max', headerName: 'Salary Max', width: 100, editable: true },
+        {
+            field: 'status',
+            headerName: 'Status',
+            width: 130,
+            type: 'singleSelect',
+            valueOptions: statusOptions, 
+            editable: true,
+            renderCell: (params) => (
+            <div
+                style={{
+                  backgroundColor: statusColors[params.value] || 'transparent',
+                  color: '#000000ff',
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 500,
+                  borderRadius: 0, // Remove rounded corners for full fill
+                }}
+              >
+                    {params.value}
+                </div>
+            ),
+        },
+        {
+            field: 'last_step',
+            headerName: 'Last Step',
+            width: 150,
+            type: 'singleSelect',
+            valueOptions: lastStepOptions, 
+            editable: true
+        },
+        { field: 'last_updated', headerName: 'Last Updated On', width: 120, editable: false,
+            renderCell: (params) => {
+                const date = new Date(params.value);
+                if (isNaN(date.getTime())) {
+                  return 'Invalid Date';
+                }
+                return formatDate(date);
+            }
+         },
+        { field: 'notes', headerName: 'Notes', width: 300, editable: true },
+    ];
+}
 
 // Custom toolbar with centered controls
-function CustomToolbar() {
+function CustomToolbar({ funcUpdatedApplication }: { 
+    funcUpdatedApplication: React.Dispatch<React.SetStateAction<boolean>> 
+  }) {
 
     const [modalOpen, setModalOpen] = useState(false);
 
@@ -89,18 +146,65 @@ function CustomToolbar() {
             <GridToolbarDensitySelector />
             <GridToolbarExport />
         </GridToolbarContainer>
-         <AddApplicationModal open={modalOpen} onClose={handleCloseModal} />
+         <AddApplicationModal 
+         open={modalOpen} 
+         onClose={handleCloseModal} 
+         funcUpdatedApplication={funcUpdatedApplication}
+         />
          </>
     );
 }
 
-export default function customDataGrid(){
+export default function CustomDataGrid(data: { applicationsData: Application[]; funcUpdatedApplication:React.Dispatch<React.SetStateAction<boolean>>}){
+
+  setColumns(data.applicationsData)
+
+  const [snackbar, setSnackbar] = React.useState<Pick<
+    AlertProps,
+    'children' | 'severity'
+  > | null>(null);
+
+  const handleCloseSnackbar = () => setSnackbar(null);
+
+  const processRowUpdate = React.useCallback(
+async (newRow: GridRowModel) => {
+    try {
+      // Make a real PUT request to your API
+      const response = await fetch(`/api/application/${newRow.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newRow),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update application');
+      }
+
+      setSnackbar({ children: 'Application successfully saved', severity: 'success' });
+      return newRow;
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown error';
+      setSnackbar({ children: message, severity: 'error' });
+      throw error;
+    }
+  },
+  [],
+  );
+
+  const handleProcessRowUpdateError = React.useCallback((error: Error) => {
+    setSnackbar({ children: error.message, severity: 'error' });
+  }, []);
+  
 return (
     <div style={{height: '100vh'}}>
         <Paper sx={{ height: '80%', width: '100%' }}>
             <DataGrid
-            rows={applications}
+            rows={data.applicationsData}
             columns={columns}
+            processRowUpdate={processRowUpdate}
+            onProcessRowUpdateError={handleProcessRowUpdateError}
             paginationModel={{ page: 0, pageSize: applications.length }} // Show all rows
             pageSizeOptions={[applications.length]} // Only allow one page size
             initialState={{ 
@@ -120,7 +224,7 @@ return (
              }}
             editMode="row"
             slots={{
-                toolbar: CustomToolbar
+                toolbar: () => CustomToolbar({ funcUpdatedApplication: data.funcUpdatedApplication })
               }}
               slotProps={{
                 panel: {
@@ -129,6 +233,16 @@ return (
                 },
             }}
             />
+            {!!snackbar && (
+        <Snackbar
+          open
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+          onClose={handleCloseSnackbar}
+          autoHideDuration={6000}
+        >
+          <Alert {...snackbar} onClose={handleCloseSnackbar} />
+        </Snackbar>
+      )}
         </Paper>
     </div>
 )
