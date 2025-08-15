@@ -4,11 +4,11 @@ import { Application } from '../../../../types';
 
 export async function PUT(
     request: Request,
-    { params }: { params: { id: string } }
+    context : { params: { id: string } }
 ): Promise<NextResponse> {
     try {
         const application: Application = await request.json();
-
+        const {id} = await context.params;
         // Validate required fields
         if (
             !application.company ||
@@ -25,7 +25,7 @@ export async function PUT(
         }
 
         // Ensure the ID in the URL matches the ID in the request body
-        if (application.id !== parseInt(params.id)) {
+        if (application.id !== parseInt(id)) {
             return NextResponse.json(
                 { error: 'ID mismatch' },
                 { status: 400 }
