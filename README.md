@@ -78,4 +78,5 @@ Visit [http://localhost:3000](http://localhost:3000).
 
 ---
 
-## License
+## Issue Tracker
+https://trello.com/b/5rxISNNw/jobseeker
