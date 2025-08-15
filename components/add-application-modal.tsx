@@ -8,6 +8,7 @@ import * as React from 'react';
 import { Application } from '../types'; // Import the Application type
 import MenuItem from '@mui/material/MenuItem';
 import { lastStepOptions, statusOptions } from '../constants/constants';
+import { formatDate, parseDate } from '../lib/utils';
 
 const box_style = {
     position: 'absolute',
@@ -23,23 +24,10 @@ const box_style = {
 };
 
 
-const months = ['Jan','Feb','Mar','Apr','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-// Helper function to format a Date object as "dd-Month-yyyy"
-const formatDate = (date: Date): string => {
-    const day = String(date.getDate()).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}-${months[date.getMonth()]}-${year}`;
-};
-
-// Helper function to parse a "dd-Month-yyyy" string into a Date object
-const parseDate = (dateString: string): Date => {
-    const [day, month, year] = dateString.split('-');
-    return new Date(Number(year),months.indexOf(month), Number(day)); // Months are 0-based
-};
 
 export default function AddApplicationModal(
-    { open, onClose }:
-    { open: boolean; onClose: () => void;}
+    { open, onClose, funcUpdatedApplication  }:
+    { open: boolean; onClose: () => void; funcUpdatedApplication: React.Dispatch<React.SetStateAction<boolean>>;}
     ) {
     const [application, setApplication] = useState<Omit<Application, 'id'>>({
         company: '',
@@ -98,6 +86,7 @@ export default function AddApplicationModal(
 
             const result = await response.json();
             console.log(result.message); // "Application added successfully"
+            funcUpdatedApplication(prev => !prev);
             onClose(); // Close the modal after successful submission
         } catch (error) {
             console.error('Error adding application:', error);
@@ -192,8 +181,7 @@ export default function AddApplicationModal(
                             select
                             fullWidth
                             margin="normal"
-                            value={application.status} 
-                            
+                            value={application.status}
                             onChange={(e) => handleChange('status', e.target.value)}
                         >
                             {statusOptions.map((option) => (
