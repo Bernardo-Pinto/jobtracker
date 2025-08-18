@@ -17,19 +17,89 @@ import {
 import Snackbar from '@mui/material/Snackbar';
 import Alert, { AlertProps } from '@mui/material/Alert';
 import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
 import AddApplicationModal from './add-application-modal'; // Import the modal
 import { lastStepOptions, statusOptions } from '../constants/constants';
 import { Application } from '../types';
 
-import applications from '../demo-data/applications-data'
 import { formatDate } from '../lib/utils';
 
 
 let companyOptions:string[] = []
 let columns: GridColDef[] = []
 
+
   
-function setColumns(applicationsData:Application[]){
+
+// Custom toolbar with centered controls
+function CustomToolbar({ 
+  funcUpdatedApplication, 
+  onBulkDelete, 
+  selectedCount 
+}: { 
+  funcUpdatedApplication: React.Dispatch<React.SetStateAction<boolean>>;
+  onBulkDelete: () => void;
+  selectedCount: number;
+}) {
+
+    const [modalOpen, setModalOpen] = useState(false);
+
+    const handleOpenModal = () => setModalOpen(true);
+    const handleCloseModal = () => setModalOpen(false);
+
+    return (
+        <>
+        <GridToolbarContainer            
+            sx={{
+                display: 'flex',
+                justifyContent: 'center', // Center horizontally
+                alignItems: 'center', // Center vertically
+            }}
+        >
+            {/* Add your custom button */}
+            <Button 
+                variant="text" 
+                size="small" 
+                startIcon={<AddIcon />}
+                onClick={handleOpenModal} // Open the modal on click
+            > 
+                Add Application
+            </Button>
+
+            {/* Include the default GridToolbar buttons */}
+            <GridToolbarColumnsButton />
+            <GridToolbarFilterButton />
+            <GridToolbarDensitySelector />
+            <GridToolbarExport />
+            <Button
+              color="error"
+              disabled={selectedCount === 0}
+              onClick={onBulkDelete}
+              startIcon={<DeleteIcon />}
+              sx={{ mr: 2 }}
+            >
+              Delete Selected ({selectedCount})
+            </Button>
+        </GridToolbarContainer>
+         <AddApplicationModal 
+         open={modalOpen} 
+         onClose={handleCloseModal} 
+         funcUpdatedApplication={funcUpdatedApplication}
+         />
+         </>
+    );
+}
+
+export default function CustomDataGrid(data: { applicationsData: Application[]; funcUpdatedApplication:React.Dispatch<React.SetStateAction<boolean>>}){
+
+  //const [rows, setRows] = React.useState<Application[]>(data.applicationsData);
+  const [selectionModel, setSelectionModel] = React.useState<number[]>([]);
+  const [snackbar, setSnackbar] = React.useState<Pick<
+  AlertProps,
+  'children' | 'severity'
+> | null>(null);
+
+  function setColumns(applicationsData:Application[]){
 
     companyOptions = [...new Set(applicationsData.map((app) => app.company).filter(Boolean))];
     
@@ -108,88 +178,98 @@ function setColumns(applicationsData:Application[]){
             }
          },
         { field: 'notes', headerName: 'Notes', width: 300, editable: true },
-    ];
-}
+        { field: 'delete',headerName: 'Delete', width: 100,
+          renderCell: (params) => (
+            <Button
+              aria-label="delete"
+              color="error"
 
-// Custom toolbar with centered controls
-function CustomToolbar({ funcUpdatedApplication }: { 
-    funcUpdatedApplication: React.Dispatch<React.SetStateAction<boolean>> 
-  }) {
-
-    const [modalOpen, setModalOpen] = useState(false);
-
-    const handleOpenModal = () => setModalOpen(true);
-    const handleCloseModal = () => setModalOpen(false);
-
-    return (
-        <>
-        <GridToolbarContainer            
-            sx={{
-                display: 'flex',
-                justifyContent: 'center', // Center horizontally
-                alignItems: 'center', // Center vertically
-            }}
-        >
-            {/* Add your custom button */}
-            <Button 
-                variant="text" 
-                size="small" 
-                startIcon={<AddIcon />}
-                onClick={handleOpenModal} // Open the modal on click
-            > 
-                Add Application
+              onClick={() => handleDelete(params.row.id)}
+            >
+              <DeleteIcon />
             </Button>
-
-            {/* Include the default GridToolbar buttons */}
-            <GridToolbarColumnsButton />
-            <GridToolbarFilterButton />
-            <GridToolbarDensitySelector />
-            <GridToolbarExport />
-        </GridToolbarContainer>
-         <AddApplicationModal 
-         open={modalOpen} 
-         onClose={handleCloseModal} 
-         funcUpdatedApplication={funcUpdatedApplication}
-         />
-         </>
-    );
-}
-
-export default function CustomDataGrid(data: { applicationsData: Application[]; funcUpdatedApplication:React.Dispatch<React.SetStateAction<boolean>>}){
-
+          ),
+          sortable: false,
+          filterable: false,
+        },
+      ];
+  }
+  
   setColumns(data.applicationsData)
-
-  const [snackbar, setSnackbar] = React.useState<Pick<
-    AlertProps,
-    'children' | 'severity'
-  > | null>(null);
 
   const handleCloseSnackbar = () => setSnackbar(null);
 
-  const processRowUpdate = React.useCallback(
-async (newRow: GridRowModel) => {
+  const handleDelete = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this application?')) return;
     try {
-      // Make a real PUT request to your API
-      const response = await fetch(`/api/application/${newRow.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newRow),
-      });
-
+      const response = await fetch(`/api/application/${id}`, { method: 'DELETE' });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update application');
+        throw new Error(errorData.error || 'Failed to delete application');
       }
 
-      setSnackbar({ children: 'Application successfully saved', severity: 'success' });
-      return newRow;
+      setSnackbar({ children: 'Application deleted', severity: 'success' });
     } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown error';
+      const message = error instanceof Error ? error.message : 'Unknown error';
       setSnackbar({ children: message, severity: 'error' });
-      throw error;
     }
-  },
+  };
+
+  const handleBulkDelete = async () => {
+    if (!window.confirm(`Are you sure you want to delete ${selectionModel.length} applications?`)) return;
+
+    try {
+      await Promise.all(
+        selectionModel.map(async id => {
+          const response = await fetch(`/api/application/${id}`, { method: 'DELETE' });
+          if (!response.ok) throw new Error(`Failed to delete application ${id}`);
+        })
+    );
+
+    setSnackbar({ 
+    children: `Successfully deleted ${selectionModel.length} applications`, 
+    severity: 'success' 
+    });
+
+    // Trigger parent to refetch data
+    data.funcUpdatedApplication(prev => !prev);
+
+    // Clear selection
+    setSelectionModel([]);
+
+    } catch{
+        setSnackbar({ 
+          children: 'Failed to delete some applications', 
+          severity: 'error' 
+        });
+      }
+    };
+
+
+  const processRowUpdate = React.useCallback(
+    async (newRow: GridRowModel) => {
+      try {
+        // Make a real PUT request to your API
+        const response = await fetch(`/api/application/${newRow.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newRow),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to update application');
+        }
+
+        setSnackbar({ children: 'Application successfully saved', severity: 'success' });
+        return newRow;
+      } catch (error: unknown) {
+        const message =
+          error instanceof Error ? error.message : 'Unknown error';
+        setSnackbar({ children: message, severity: 'error' });
+        throw error;
+      }
+    },
   [],
   );
 
@@ -205,8 +285,8 @@ return (
             columns={columns}
             processRowUpdate={processRowUpdate}
             onProcessRowUpdateError={handleProcessRowUpdateError}
-            paginationModel={{ page: 0, pageSize: applications.length }} // Show all rows
-            pageSizeOptions={[applications.length]} // Only allow one page size
+            paginationModel={{ page: 0, pageSize: data.applicationsData.length }} // Show all rows
+            pageSizeOptions={[data.applicationsData.length]} // Only allow one page size
             initialState={{ 
                 columns:{
                     columnVisibilityModel:{
@@ -216,6 +296,8 @@ return (
             }}
             //pageSizeOptions={[20, 100]}
             checkboxSelection
+            onRowSelectionModelChange={(ids) => setSelectionModel(ids as number[])}
+            rowSelectionModel={selectionModel} 
             sx={{ 
                 border: 0,
                 //'& .MuiDataGrid-footerContainer': { // Hide the footer (pagination)
@@ -224,7 +306,11 @@ return (
              }}
             editMode="row"
             slots={{
-                toolbar: () => CustomToolbar({ funcUpdatedApplication: data.funcUpdatedApplication })
+                toolbar: () => <CustomToolbar 
+                funcUpdatedApplication={data.funcUpdatedApplication}
+                onBulkDelete={handleBulkDelete}
+                selectedCount={selectionModel.length}
+                />
               }}
               slotProps={{
                 panel: {

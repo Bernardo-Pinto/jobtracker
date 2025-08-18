@@ -18,10 +18,9 @@ async function fetchApplicationData(){
         }
     
         const result = await response.json();
-        console.log(result.message); // "Application added successfully"
         return result;
     } catch (error) {
-        console.error('Error gettins applications:', error);
+        console.error('Error getting applications:', error);
     }
 }
 
@@ -30,7 +29,6 @@ export default function Applications() {
     const [loading, setLoading] = useState(true);
     const [updatedApplication, setUpdatedApplication] = useState(false)
 
-      // Fetch data on component mount
     useEffect(() => {
         async function fetchData() {
             try {
@@ -38,7 +36,6 @@ export default function Applications() {
                 setApplicationList(data);
               } catch (error) {
                 console.log('error fetching data: ' + error);
-                //setError(error.message); //not implemented
               } finally {
                 setLoading(false);
             }
@@ -50,5 +47,9 @@ export default function Applications() {
         return <div>Loading...</div>;
       }
      else return (
-        <CustomDataGrid applicationsData={applicationList} funcUpdatedApplication={setUpdatedApplication}/>
-)}
+        <CustomDataGrid 
+        applicationsData={applicationList}
+        funcUpdatedApplication={setUpdatedApplication}
+        />
+    )
+}

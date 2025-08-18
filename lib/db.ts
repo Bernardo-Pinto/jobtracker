@@ -71,3 +71,14 @@ export async function updateApplication(application: Application): Promise<void>
         application.id,
     );
 }
+
+// delete application
+export async function deleteApplication(id: number): Promise<void> {
+    const db = await openDb();
+    const stmt = db.prepare('DELETE FROM applications WHERE id = ?');
+    const info = stmt.run(id);
+
+    if (info.changes === 0) {
+        throw new Error('Application not found');
+    }
+}
