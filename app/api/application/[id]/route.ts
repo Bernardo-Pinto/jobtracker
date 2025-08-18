@@ -3,8 +3,8 @@ import { updateApplication } from '../../../../lib/db';
 import { Application } from '../../../../types';
 
 export async function PUT(
-    request: Request,
-    context : { params: { id: string } }
+    request : Request,
+    context : { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
     try {
         const application: Application = await request.json();

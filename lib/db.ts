@@ -1,14 +1,15 @@
 'use server';
 
-import Database from 'better-sqlite3';
+import type { Database } from 'better-sqlite3';
+import BetterSqlite3 from 'better-sqlite3';
 import { Application } from '../types';
 
 let db: Database | null = null;
 
 // Open SQLite database connection
-export async function openDb(): Database {
+export async function openDb(): Promise<Database> {
     if (!db) {
-        db = new Database('./database.db');
+        db = new BetterSqlite3('./database.db');
     }
     return db;
 }
@@ -16,7 +17,7 @@ export async function openDb(): Database {
 // Fetch all Applications
 export async function getApplications(): Promise<Application[]> {
     const db = await openDb();
-    return db.prepare('SELECT * FROM applications').all();
+    return db.prepare('SELECT * FROM applications').all() as Application[];
 }
 
 export async function addApplication(application: Application): Promise<void> {
