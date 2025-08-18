@@ -52,31 +52,62 @@ Visit [http://localhost:3000](http://localhost:3000).
 
 ---
 
-## Project Structure & Useful Info
-
-- **TypeScript types:**  
-  `types/index.ts`
-- **Database logic:**  
-  `lib/db.ts`
-- **Date formatting utilities:**  
-  `lib/utils.ts`  
-  - `formatDate(date: Date): string` formats a date as `"dd-Month-yyyy"`.
-  - `parseDate(dateString: string): Date` parses a `"dd-Month-yyyy"` string into a `Date` object.
-- **Demo data:**  
-  `demo-data/applications-data.ts`
-- **Main UI:**  
-  `components/data-grid.tsx`
-- **Constants:**  
-  `constants/constants.ts` (status, steps, month names, etc.)
-
----
-
 ## Customization
 
 - Update `constants/constants.ts` for custom status, steps, or month names.
 - Modify `components/data-grid.tsx` for UI changes.
 
 ---
+
+## Technologies Used
+
+- **Frontend**: Next.js 15, React 19, Material-UI (MUI), TypeScript
+- **Backend**: Next.js API Routes, better-sqlite3
+- **Database**: SQLite
+- **Styling**: CSS Modules, Material-UI components
+- **Deployment**: Docker support included
+
+## Project Structure
+
+```
+jobtracker/
+├── app/
+│   ├── api/application/          # API routes for job applications
+│   │   ├── route.ts             # GET (all), POST (create)
+│   │   └── [id]/route.ts        # GET, PUT, DELETE (single application)
+│   ├── (pages)/applications/    # Application pages
+│   └── globals.css              # Global styles
+├── components/
+│   ├── data-grid.tsx           # Main data grid component with bulk delete
+│   └── add-application-modal.tsx # Modal for adding new applications
+├── lib/
+│   ├── db.ts                   # Database connection and queries
+│   └── utils.ts                # Utility functions (date formatting)
+├── types/
+│   └── index.ts                # TypeScript type definitions
+├── constants/
+│   └── constants.ts            # Application constants (status, steps, etc.)
+├── demo-data/
+│   └── applications-data.ts    # Sample data for development
+├── scripts/
+│   └── initDb.ts              # Database initialization script
+├── database.db               # SQLite database file
+├── Dockerfile               # Docker configuration
+└── README.md
+```
+---
+
+## Using Docker
+
+1. **Build the Docker image**
+   ```bash
+   docker build -t jobtracker .
+   ```
+
+2. **Run the container**
+   ```bash
+   docker run -p 3000:3000 jobtracker
+   ```
 
 ## Issue Tracker
 https://trello.com/b/5rxISNNw/jobseeker

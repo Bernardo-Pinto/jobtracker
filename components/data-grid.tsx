@@ -178,42 +178,12 @@ export default function CustomDataGrid(data: { applicationsData: Application[]; 
             }
          },
         { field: 'notes', headerName: 'Notes', width: 300, editable: true },
-        { field: 'delete',headerName: 'Delete', width: 100,
-          renderCell: (params) => (
-            <Button
-              aria-label="delete"
-              color="error"
-
-              onClick={() => handleDelete(params.row.id)}
-            >
-              <DeleteIcon />
-            </Button>
-          ),
-          sortable: false,
-          filterable: false,
-        },
       ];
   }
   
   setColumns(data.applicationsData)
 
   const handleCloseSnackbar = () => setSnackbar(null);
-
-  const handleDelete = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this application?')) return;
-    try {
-      const response = await fetch(`/api/application/${id}`, { method: 'DELETE' });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete application');
-      }
-
-      setSnackbar({ children: 'Application deleted', severity: 'success' });
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      setSnackbar({ children: message, severity: 'error' });
-    }
-  };
 
   const handleBulkDelete = async () => {
     if (!window.confirm(`Are you sure you want to delete ${selectionModel.length} applications?`)) return;
