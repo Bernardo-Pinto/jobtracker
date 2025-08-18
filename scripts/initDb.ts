@@ -2,7 +2,7 @@ import { openDb } from '../lib/db';
 
 async function initDb() {
     const db = await openDb();
-    await db.exec(`
+    db.exec(`
         CREATE TABLE IF NOT EXISTS applications (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             company TEXT NOT NULL,
