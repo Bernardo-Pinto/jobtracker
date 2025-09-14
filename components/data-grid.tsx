@@ -232,6 +232,8 @@ export default function CustomDataGrid(data: { applicationsData: Application[]; 
         }
 
         setSnackbar({ children: 'Application successfully saved', severity: 'success' });
+        data.funcUpdatedApplication(prev => !prev);
+
         return newRow;
       } catch (error: unknown) {
         const message =
