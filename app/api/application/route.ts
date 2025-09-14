@@ -12,6 +12,8 @@ export async function GET(): Promise<NextResponse<Application[]>> {
 export async function POST(request: Request): Promise<NextResponse> {
     try {
         const application = await request.json();
+        console.log("POST to /api/application called with:");
+        console.log(application);
         await addApplication(application);
 
         return NextResponse.json({ message: 'Application added successfully' });
