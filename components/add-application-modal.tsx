@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Modal, Box, TextField, Button, Typography} from '@mui/material';
+import { Modal, Box, TextField, Button, Typography, AlertProps, Snackbar, Alert} from '@mui/material';
 import Grid from '@mui/material/Grid2';
 import * as React from 'react';
 
@@ -29,6 +29,9 @@ export default function AddApplicationModal(
     { open, onClose, funcUpdatedApplication  }:
     { open: boolean; onClose: () => void; funcUpdatedApplication: React.Dispatch<React.SetStateAction<boolean>>;}
     ) {
+        
+    const [snackbar, setSnackbar] = useState<Pick<AlertProps, 'children' | 'severity'> | null>(null);
+
     const [application, setApplication] = useState<Omit<Application, 'id'>>({
         company: '',
         title: '',
@@ -52,7 +55,20 @@ export default function AddApplicationModal(
             !application.applied_on ||
             !application.last_updated
         ) {
-            alert('Please fill out all required fields.');
+            setSnackbar({ children: 'Please fill out all required fields.', severity: 'error' });
+            return;
+        }
+        const { salary_min: min, salary_max: max } = application;
+        if (min !== null && min < 0) {
+            setSnackbar({ children: 'Salary must be non-negative.', severity: 'error' });
+            return;
+        }
+        if (max !== null && max < 0) {
+            setSnackbar({ children: 'Salary must be non-negative.', severity: 'error' });
+            return;
+        }
+        if (min !== null && max !== null && max < min) {
+            setSnackbar({ children: 'Maximum salary cannot be less than minimum salary.', severity: 'error' });
             return;
         }
 
@@ -103,140 +119,156 @@ export default function AddApplicationModal(
         }));
     };
 
+    const handleCloseSnackbar = () => setSnackbar(null);
+
     return (
-        <Modal open={open} onClose={onClose}>
-            <Box sx={box_style}>
-                <Typography variant="h6" component="h2" gutterBottom>
-                    Add New Application
-                </Typography>
-                <Grid
-                container
-                direction="row"
-                sx={{
-                    justifyContent: "space-around",
-                    alignItems: "center",
-                }}
-                spacing={1}
-                >
-                    <Grid size={"auto"}>
-                        <TextField
-                            label="Company"
-                            fullWidth
-                            margin="normal"
-                            value={application.company}
-                            onChange={(e) => handleChange('company', e.target.value)}
-                        />
-                    </Grid>
-                    <Grid size={"auto"}>
-                        <TextField
-                            label="Title"
-                            fullWidth
-                            margin="normal"
-                            value={application.title}
-                            onChange={(e) => handleChange('title', e.target.value)}
-                        />
-                    </Grid>
-                    <Grid size={"auto"}>
-                    <TextField
-                        label="Link"
-                        fullWidth
-                        margin="normal"
-                        value={application.link}
-                        onChange={(e) => handleChange('link', e.target.value)}
-                    />  
-                    </Grid>
-                    <Grid size={"auto"}>
-                        <TextField
-                            label="Salary Min"
-                            fullWidth
-                            margin="normal"
-                            type="number"
-                            value={application.salary_min === null ? "" : application.salary_min} // Show empty if null
-                            onChange={(e) => handleChange('salary_min', Number(e.target.value))}
-                        />
-                    </Grid>
-                    <Grid size={"auto"}>
-                        <TextField
-                            label="Salary Max"
-                            fullWidth
-                            margin="normal"
-                            type="number"
-                            value={application.salary_max === null ? "" : application.salary_min} // Show empty if null
-                            onChange={(e) => handleChange('salary_max', Number(e.target.value))}
-                        />
-                    </Grid>
-                    <Grid size={"auto"}>
-                        <TextField
-                            label="Last Updated (dd-mm-yyyy)"
-                            fullWidth
-                            margin="normal"
-                            value={application.last_updated}
-                            onChange={(e) => handleChange('last_updated', e.target.value)}
-                        />
-                    </Grid>
+        <div>
 
-                    <Grid size={"auto"}>
+            <Modal open={open} onClose={onClose}>
+                <Box sx={box_style}>
+                    <Typography variant="h6" component="h2" gutterBottom>
+                        Add New Application
+                    </Typography>
+                    <Grid
+                    container
+                    direction="row"
+                    sx={{
+                        justifyContent: "space-around",
+                        alignItems: "center",
+                    }}
+                    spacing={1}
+                    >
+                        <Grid size={"auto"}>
+                            <TextField
+                                label="Company"
+                                fullWidth
+                                margin="normal"
+                                value={application.company}
+                                onChange={(e) => handleChange('company', e.target.value)}
+                            />
+                        </Grid>
+                        <Grid size={"auto"}>
+                            <TextField
+                                label="Title"
+                                fullWidth
+                                margin="normal"
+                                value={application.title}
+                                onChange={(e) => handleChange('title', e.target.value)}
+                            />
+                        </Grid>
+                        <Grid size={"auto"}>
                         <TextField
-                            label="Status"
-                            select
+                            label="Link"
                             fullWidth
                             margin="normal"
-                            value={application.status}
-                            onChange={(e) => handleChange('status', e.target.value)}
-                        >
-                            {statusOptions.map((option) => (
-                                <MenuItem key={option} value={option}>
-                                    {option}
-                                </MenuItem>
-                            ))}
-                        </TextField>
-                    </Grid>
-                    <Grid size={"auto"}>
+                            value={application.link}
+                            onChange={(e) => handleChange('link', e.target.value)}
+                        />  
+                        </Grid>
+                        <Grid size={"auto"}>
+                            <TextField
+                                label="Salary Min"
+                                fullWidth
+                                margin="normal"
+                                type="number"
+                                value={application.salary_min === null ? "" : application.salary_min} // Show empty if null
+                                onChange={(e) => handleChange('salary_min', e.target.value)}
+                                inputProps={{ min: 0 }}
+                            />
+                        </Grid>
+                        <Grid size={"auto"}>
+                            <TextField
+                                label="Salary Max"
+                                fullWidth
+                                margin="normal"
+                                type="number"
+                                value={application.salary_max === null ? "" : application.salary_max} // Show empty if null
+                                onChange={(e) => handleChange('salary_max', e.target.value)}
+                                inputProps={{ min: 0 }}
+                            />
+                        </Grid>
+                        <Grid size={"auto"}>
+                            <TextField
+                                label="Last Updated (dd-mm-yyyy)"
+                                fullWidth
+                                margin="normal"
+                                value={application.last_updated}
+                                onChange={(e) => handleChange('last_updated', e.target.value)}
+                            />
+                        </Grid>
+    
+                        <Grid size={"auto"}>
+                            <TextField
+                                label="Status"
+                                select
+                                fullWidth
+                                margin="normal"
+                                value={application.status}
+                                onChange={(e) => handleChange('status', e.target.value)}
+                            >
+                                {statusOptions.map((option) => (
+                                    <MenuItem key={option} value={option}>
+                                        {option}
+                                    </MenuItem>
+                                ))}
+                            </TextField>
+                        </Grid>
+                        <Grid size={"auto"}>
+                            <TextField
+                                label="Last Step"
+                                fullWidth
+                                margin="normal"
+                                select
+                                value={application.last_step}
+                                onChange={(e) => handleChange('last_step', e.target.value)}
+                            >
+                                {lastStepOptions.map((option) => (
+                                    <MenuItem key={option} value={option}>
+                                        {option}
+                                    </MenuItem>
+                                ))}
+                            </TextField>
+                        </Grid>
+                        <Grid size={"auto"}>
+                            <TextField
+                                label="Applied On (dd-mm-yyyy)"
+                                fullWidth
+                                margin="normal"
+                                value={application.applied_on}
+                                onChange={(e) => handleChange('applied_on', e.target.value)}
+                            />
+                        </Grid>
+    
+    
                         <TextField
-                            label="Last Step"
+                            label="Notes"
                             fullWidth
                             margin="normal"
-                            select
-                            value={application.last_step}
-                            onChange={(e) => handleChange('last_step', e.target.value)}
-                        >
-                            {lastStepOptions.map((option) => (
-                                <MenuItem key={option} value={option}>
-                                    {option}
-                                </MenuItem>
-                            ))}
-                        </TextField>
-                    </Grid>
-                    <Grid size={"auto"}>
-                        <TextField
-                            label="Applied On (dd-mm-yyyy)"
-                            fullWidth
-                            margin="normal"
-                            value={application.applied_on}
-                            onChange={(e) => handleChange('applied_on', e.target.value)}
+                            multiline
+                            rows={4}
+                            value={application.notes}
+                            onChange={(e) => handleChange('notes', e.target.value)}
                         />
+                        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                            <Button onClick={onClose} sx={{ mr: 1 }}>
+                                Cancel
+                            </Button>
+                            <Button variant="contained" onClick={handleSubmit}>
+                                Save
+                            </Button>
+                        </Box>
                     </Grid>
-
-
-                    <TextField
-                        label="Notes"
-                        fullWidth
-                        margin="normal"
-                        multiline
-                        rows={4}
-                        value={application.notes}
-                        onChange={(e) => handleChange('notes', e.target.value)}
-                    />
-                    <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                        <Button onClick={onClose} sx={{ mr: 1 }}>
-                            Cancel
-                        </Button>
-                        <Button variant="contained" onClick={handleSubmit}>
-                            Save
-                        </Button>
-                    </Box>
-                </Grid>
-            </Box>
-        </Modal>
+                </Box>
+            </Modal>
+            {!!snackbar && (
+                <Snackbar 
+                open 
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }} 
+                onClose={handleCloseSnackbar} 
+                autoHideDuration={6000}>
+                    <Alert {...snackbar} onClose={handleCloseSnackbar} />
+                </Snackbar>
+            )}
+        </div>
     );
 }

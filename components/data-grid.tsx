@@ -218,6 +218,18 @@ export default function CustomDataGrid(data: { applicationsData: Application[]; 
 
   const processRowUpdate = React.useCallback(
     async (newRow: GridRowModel) => {
+
+       // Coerce to numbers/null
+      const min = newRow.salary_min === '' || newRow.salary_min == null ? null : Number(newRow.salary_min);
+      const max = newRow.salary_max === '' || newRow.salary_max == null ? null : Number(newRow.salary_max);
+
+    // Simple validation
+    if ((min !== null && (isNaN(min) || min < 0)) ||
+        (max !== null && (isNaN(max) || max < 0)) ||
+        (min !== null && max !== null && min > max)) {
+      throw new Error('Salary must be non-negative and min cannot exceed max.');
+    }
+
       try {
         // Make a real PUT request to your API
         const response = await fetch(`/api/application/${newRow.id}`, {
