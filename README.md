@@ -109,5 +109,42 @@ jobtracker/
    docker run -p 3000:3000 jobtracker
    ```
 
+### Persisting the SQLite database across updates (recommended)
+
+This app is configured to store the SQLite DB on a Docker volume so your data survives image upgrades and container restarts.
+
+- Inside the container, the DB path is `/data/database.db` (set via `ENV DATABASE_PATH=/data/database.db`).
+- The Dockerfile declares `VOLUME ["/data"]`, so mounting a volume at `/data` persists the database.
+
+Run with a named volume (Windows PowerShell examples):
+
+```powershell
+# Build image
+docker build -t jobtracker:latest .
+
+# Create the named volume once
+docker volume create jobtracker-data
+
+# Run the app with the volume mounted at /data
+docker run -d --name jobtracker -p 3000:3000 -v jobtracker-data:/data jobtracker:latest
+```
+
+Upgrade/redeploy without losing data:
+
+```powershell
+docker rm -f jobtracker
+docker run -d --name jobtracker -p 3000:3000 -v jobtracker-data:/data jobtracker:latest
+```
+
+Verify the database exists in the container:
+
+```powershell
+docker exec -it jobtracker sh -lc "ls -l /data && ls -l /data/database.db || true"
+```
+
+Notes:
+- On first run with an empty volume, the app auto-creates the schema.
+- If you don’t pass a `-v` mount, Docker creates an anonymous volume for `/data` that won’t be reused by new containers.
+
 ## Issue Tracker
 https://trello.com/b/5rxISNNw/jobseeker

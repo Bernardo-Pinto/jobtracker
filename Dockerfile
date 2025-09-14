@@ -3,9 +3,13 @@ FROM node:18
 
 WORKDIR /app
 
-# Copy package files and database first
+# Copy package files first
 COPY package.json ./
-COPY database.db ./
+
+# Configure persistent data directory and DB path
+ENV DATABASE_PATH=/data/database.db
+RUN mkdir -p /data
+VOLUME ["/data"]
 
 # Install dependencies for Linux
 RUN npm install
