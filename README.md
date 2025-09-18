@@ -125,21 +125,12 @@ docker build -t jobtracker:latest .
 # Create the named volume once
 docker volume create jobtracker-data
 
+#Tag with imageID and push
+docker tag <TAG> bernardortp2/jobtracker:latest
+docker push bernardortp2/jobtracker:latest
+
 # Run the app with the volume mounted at /data
 docker run -d --name jobtracker -p 3000:3000 -v jobtracker-data:/data jobtracker:latest
-```
-
-Upgrade/redeploy without losing data:
-
-```powershell
-docker rm -f jobtracker
-docker run -d --name jobtracker -p 3000:3000 -v jobtracker-data:/data jobtracker:latest
-```
-
-Verify the database exists in the container:
-
-```powershell
-docker exec -it jobtracker sh -lc "ls -l /data && ls -l /data/database.db || true"
 ```
 
 Notes:

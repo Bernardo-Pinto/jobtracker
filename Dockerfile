@@ -1,25 +1,25 @@
-# Use official Node.js image
-FROM node:18
-
+FROM node:18-slim AS build
 WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
 
-# Copy package files first
-COPY package.json ./
-
-# Configure persistent data directory and DB path
+FROM node:18-slim
+WORKDIR /app
+ENV NODE_ENV=production
 ENV DATABASE_PATH=/data/database.db
 RUN mkdir -p /data
 VOLUME ["/data"]
-
-# Install dependencies for Linux
-RUN npm install
-
-# Copy the rest of your app
-COPY . .
-
-# Build Next.js app
-RUN npm run build
-
+COPY --from=build /app/package*.json ./
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/.next ./.next
+COPY --from=build /app/public ./public
+COPY --from=build /app/next.config.* ./
+COPY --from=build /app/lib ./lib
+COPY --from=build /app/app ./app
+COPY --from=build /app/constants ./constants
+COPY --from=build /app/types ./types
+COPY --from=build /app/scripts ./scripts
 EXPOSE 3000
-
-CMD ["npm", "start"]
+CMD ["npm","start"]
