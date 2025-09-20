@@ -117,6 +117,8 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
   const [notesEditMode, setNotesEditMode] = React.useState(false);
   const [notesDraft, setNotesDraft] = React.useState('');
   const [notesRow, setNotesRow] = React.useState<Application | null>(null);
+  // Trigger autosize on actual window resizes
+  const [resizeTick, setResizeTick] = React.useState(0);
 
   function setColumns(){
     
@@ -588,14 +590,10 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
         // ignore
       }
     }
-  }, [applicationsData, docsMap, apiRef]);
+  }, [applicationsData, docsMap, apiRef, resizeTick, notesDialogOpen]);
 
   React.useEffect(() => {
-    const onResize = () => {
-      // trigger autosize on resize
-      // change state dependency by toggling a no-op state would be heavy; instead just re-run by forcing effect
-      // call the same logic by updating a state is overkill; simplest is to rely on window resize not changing deps
-    };
+    const onResize = () => setResizeTick((t) => t + 1);
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
@@ -687,7 +685,7 @@ return (
                 },
             }}
             />
-            <Dialog open={notesDialogOpen} onClose={closeNotesDialog} fullWidth maxWidth="sm">
+            <Dialog open={notesDialogOpen} onClose={closeNotesDialog} fullWidth maxWidth="sm" disableScrollLock>
               <DialogTitle>Notes{notesRow ? ` — ${notesRow.company} • ${notesRow.title}` : ''}</DialogTitle>
               <DialogContent dividers>
                 {notesEditMode ? (
