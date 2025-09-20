@@ -21,7 +21,16 @@ export async function openDb(): Promise<Database> {
 // Fetch all Applications
 export async function getApplications(): Promise<Application[]> {
     const db = await openDb();
-    const rows = db.prepare('SELECT * FROM applications').all() as Array<{
+            const rows = db.prepare(
+                    `SELECT * FROM applications
+                     ORDER BY
+                         CASE status
+                             WHEN 'Needs action' THEN 0
+                             WHEN 'Waiting' THEN 1
+                             ELSE 2
+                         END,
+                         last_updated DESC`
+            ).all() as Array<{
         id: number;
         company: string;
         title: string;
