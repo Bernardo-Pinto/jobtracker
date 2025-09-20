@@ -6,6 +6,7 @@ export interface Application {
     applied_on: string;
     salary_min: number | null;
     salary_max: number | null;
+    modality: string | null;
     status: string;
     last_step: string;
     last_updated: string;

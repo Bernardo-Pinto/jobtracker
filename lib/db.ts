@@ -32,10 +32,10 @@ export async function addApplication(application: Application): Promise<void> {
         const db = await openDb();
 
         db.prepare(`INSERT INTO applications 
-            (company, title, link, applied_on, salary_min, salary_max, status, last_step, last_updated, notes) 
-            VALUES (?,?,?,?,?,?,?,?,?,?)`).run(
+            (company, title, link, applied_on, salary_min, salary_max, modality, status, last_step, last_updated, notes) 
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)`).run(
             application.company, application.title, application.link, application.applied_on, 
-            application.salary_min, application.salary_max, application.status, application.last_step, 
+            application.salary_min, application.salary_max, application.modality, application.status, application.last_step, 
             application.last_updated, application.notes
         );
 
@@ -56,6 +56,7 @@ export async function updateApplication(application: Application): Promise<void>
             applied_on = ?,
             salary_min = ?,
             salary_max = ?,
+            modality = ?,
             status = ?,
             last_step = ?,
             last_updated = ?,
@@ -68,6 +69,7 @@ export async function updateApplication(application: Application): Promise<void>
         application.applied_on,
         application.salary_min,
         application.salary_max,
+        application.modality,
         application.status,
         application.last_step,
         new Date().toISOString(), // Update last_updated to the current time

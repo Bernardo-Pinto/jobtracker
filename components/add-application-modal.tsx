@@ -1,20 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { Modal, Box, TextField, Button, Typography, AlertProps, Snackbar, Alert} from '@mui/material';
+import { Modal, Box, TextField, Button, Typography, AlertProps, Snackbar, Alert } from '@mui/material';
 import Grid from '@mui/material/Grid2';
 import * as React from 'react';
 
-import { Application } from '../types'; // Import the Application type
+import { Application } from '../types';
 import MenuItem from '@mui/material/MenuItem';
-import { lastStepOptions, statusOptions } from '../constants/constants';
+import { lastStepOptions, statusOptions, modalitiesOptions } from '../constants/constants';
 import { formatDate, parseDate } from '../lib/utils';
 
 const box_style = {
     position: 'absolute',
     top: '50%',
     height: '80vh',
-    overflow:'auto',
+    overflow: 'auto',
     left: '50%',
     transform: 'translate(-50%, -50%)',
     width: '60vh',
@@ -23,30 +23,27 @@ const box_style = {
     p: 4,
 };
 
-
-
 export default function AddApplicationModal(
-    { open, onClose, funcUpdatedApplication  }:
-    { open: boolean; onClose: () => void; funcUpdatedApplication: React.Dispatch<React.SetStateAction<boolean>>;}
-    ) {
-        
+    { open, onClose, funcUpdatedApplication }:
+    { open: boolean; onClose: () => void; funcUpdatedApplication: React.Dispatch<React.SetStateAction<boolean>>; }
+) {
     const [snackbar, setSnackbar] = useState<Pick<AlertProps, 'children' | 'severity'> | null>(null);
 
     const [application, setApplication] = useState<Omit<Application, 'id'>>({
         company: '',
         title: '',
         link: '',
-        applied_on: formatDate(new Date()), // Will be manually entered
+        applied_on: formatDate(new Date()),
         salary_min: null,
         salary_max: null,
+        modality: modalitiesOptions[0],
         status: statusOptions[0],
         last_step: lastStepOptions[0],
-        last_updated: formatDate(new Date()), // Will be manually entered
+        last_updated: formatDate(new Date()),
         notes: '',
     });
 
     const handleSubmit = async () => {
-        // Validate required fields
         if (
             !application.company ||
             !application.title ||
@@ -58,6 +55,7 @@ export default function AddApplicationModal(
             setSnackbar({ children: 'Please fill out all required fields.', severity: 'error' });
             return;
         }
+
         const { salary_min: min, salary_max: max } = application;
         if (min !== null && min < 0) {
             setSnackbar({ children: 'Salary must be non-negative.', severity: 'error' });
@@ -72,26 +70,22 @@ export default function AddApplicationModal(
             return;
         }
 
-        // Convert date strings to Date objects
         const newApplication: Application = {
             ...application,
-            id: 0, // The database will auto-generate this
+            id: 0,
             applied_on: parseDate(application.applied_on).toISOString(),
             last_updated: parseDate(application.last_updated).toISOString(),
             salary_min: application.salary_min ?? 0,
-            salary_max: application.salary_max ?? 0
+            salary_max: application.salary_max ?? 0,
+            modality: application.modality ?? null,
         };
         console.log(newApplication)
         console.log('newApplication: ' + JSON.stringify(newApplication))
 
-        // here, call the API with the new application, since we are on client side,
-        //  and can't call server side functions from here
         try {
             const response = await fetch('/api/application', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newApplication),
             });
 
@@ -106,6 +100,7 @@ export default function AddApplicationModal(
             onClose(); // Close the modal after successful submission
         } catch (error) {
             console.error('Error adding application:', error);
+            setSnackbar({ children: 'Failed to add application.', severity: 'error' });
         }
     };
 
@@ -123,89 +118,45 @@ export default function AddApplicationModal(
 
     return (
         <div>
-
             <Modal open={open} onClose={onClose}>
                 <Box sx={box_style}>
                     <Typography variant="h6" component="h2" gutterBottom>
                         Add New Application
                     </Typography>
-                    <Grid
-                    container
-                    direction="row"
-                    sx={{
-                        justifyContent: "space-around",
-                        alignItems: "center",
-                    }}
-                    spacing={1}
-                    >
-                        <Grid size={"auto"}>
-                            <TextField
-                                label="Company"
-                                fullWidth
-                                margin="normal"
-                                value={application.company}
-                                onChange={(e) => handleChange('company', e.target.value)}
-                            />
+
+                                <Grid container spacing={2} columns={12}>
+                                    <Grid size={6}>
+                            <TextField label="Company" fullWidth margin="normal" value={application.company} onChange={(e) => handleChange('company', e.target.value)} />
                         </Grid>
-                        <Grid size={"auto"}>
-                            <TextField
-                                label="Title"
-                                fullWidth
-                                margin="normal"
-                                value={application.title}
-                                onChange={(e) => handleChange('title', e.target.value)}
-                            />
+                                    <Grid size={6}>
+                            <TextField label="Title" fullWidth margin="normal" value={application.title} onChange={(e) => handleChange('title', e.target.value)} />
                         </Grid>
-                        <Grid size={"auto"}>
-                        <TextField
-                            label="Link"
-                            fullWidth
-                            margin="normal"
-                            value={application.link}
-                            onChange={(e) => handleChange('link', e.target.value)}
-                        />  
+                                    <Grid size={6}>
+                            <TextField label="Link" fullWidth margin="normal" value={application.link} onChange={(e) => handleChange('link', e.target.value)} />
                         </Grid>
-                        <Grid size={"auto"}>
-                            <TextField
-                                label="Salary Min"
-                                fullWidth
-                                margin="normal"
-                                type="number"
-                                value={application.salary_min === null ? "" : application.salary_min} // Show empty if null
-                                onChange={(e) => handleChange('salary_min', e.target.value)}
-                                inputProps={{ min: 0 }}
-                            />
+                                    <Grid size={6}>
+                            <TextField label="Modality" select fullWidth margin="normal" value={application.modality} onChange={(e) => handleChange('modality', e.target.value)}>
+                                {modalitiesOptions.map((option) => (
+                                    <MenuItem key={option} value={option}>
+                                        {option}
+                                    </MenuItem>
+                                ))}
+                            </TextField>
                         </Grid>
-                        <Grid size={"auto"}>
-                            <TextField
-                                label="Salary Max"
-                                fullWidth
-                                margin="normal"
-                                type="number"
-                                value={application.salary_max === null ? "" : application.salary_max} // Show empty if null
-                                onChange={(e) => handleChange('salary_max', e.target.value)}
-                                inputProps={{ min: 0 }}
-                            />
+                                    <Grid size={6}>
+                            <TextField label="Salary Min" fullWidth margin="normal" type="number" value={application.salary_min === null ? '' : application.salary_min} onChange={(e) => handleChange('salary_min', e.target.value)} inputProps={{ min: 0 }} />
                         </Grid>
-                        <Grid size={"auto"}>
-                            <TextField
-                                label="Last Updated (dd-mm-yyyy)"
-                                fullWidth
-                                margin="normal"
-                                value={application.last_updated}
-                                onChange={(e) => handleChange('last_updated', e.target.value)}
-                            />
+                                    <Grid size={6}>
+                            <TextField label="Salary Max" fullWidth margin="normal" type="number" value={application.salary_max === null ? '' : application.salary_max} onChange={(e) => handleChange('salary_max', e.target.value)} inputProps={{ min: 0 }} />
                         </Grid>
-    
-                        <Grid size={"auto"}>
-                            <TextField
-                                label="Status"
-                                select
-                                fullWidth
-                                margin="normal"
-                                value={application.status}
-                                onChange={(e) => handleChange('status', e.target.value)}
-                            >
+                                    <Grid size={6}>
+                            <TextField label="Last Updated (dd-mm-yyyy)" fullWidth margin="normal" value={application.last_updated} onChange={(e) => handleChange('last_updated', e.target.value)} />
+                        </Grid>
+                                    <Grid size={6}>
+                            <TextField label="Applied On (dd-mm-yyyy)" fullWidth margin="normal" value={application.applied_on} onChange={(e) => handleChange('applied_on', e.target.value)} />
+                        </Grid>
+                                    <Grid size={6}>
+                            <TextField label="Status" select fullWidth margin="normal" value={application.status} onChange={(e) => handleChange('status', e.target.value)}>
                                 {statusOptions.map((option) => (
                                     <MenuItem key={option} value={option}>
                                         {option}
@@ -213,15 +164,8 @@ export default function AddApplicationModal(
                                 ))}
                             </TextField>
                         </Grid>
-                        <Grid size={"auto"}>
-                            <TextField
-                                label="Last Step"
-                                fullWidth
-                                margin="normal"
-                                select
-                                value={application.last_step}
-                                onChange={(e) => handleChange('last_step', e.target.value)}
-                            >
+                                    <Grid size={6}>
+                            <TextField label="Last Step" select fullWidth margin="normal" value={application.last_step} onChange={(e) => handleChange('last_step', e.target.value)}>
                                 {lastStepOptions.map((option) => (
                                     <MenuItem key={option} value={option}>
                                         {option}
@@ -229,43 +173,26 @@ export default function AddApplicationModal(
                                 ))}
                             </TextField>
                         </Grid>
-                        <Grid size={"auto"}>
-                            <TextField
-                                label="Applied On (dd-mm-yyyy)"
-                                fullWidth
-                                margin="normal"
-                                value={application.applied_on}
-                                onChange={(e) => handleChange('applied_on', e.target.value)}
-                            />
+
+                                    <Grid size={12}>
+                            <TextField label="Notes" fullWidth margin="normal" multiline rows={4} value={application.notes} onChange={(e) => handleChange('notes', e.target.value)} />
                         </Grid>
-    
-    
-                        <TextField
-                            label="Notes"
-                            fullWidth
-                            margin="normal"
-                            multiline
-                            rows={4}
-                            value={application.notes}
-                            onChange={(e) => handleChange('notes', e.target.value)}
-                        />
-                        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                            <Button onClick={onClose} sx={{ mr: 1 }}>
-                                Cancel
-                            </Button>
-                            <Button variant="contained" onClick={handleSubmit}>
-                                Save
-                            </Button>
-                        </Box>
+
+                                    <Grid size={12}>
+                            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                                <Button onClick={onClose} sx={{ mr: 1 }}>
+                                    Cancel
+                                </Button>
+                                <Button variant="contained" onClick={handleSubmit}>
+                                    Save
+                                </Button>
+                            </Box>
+                        </Grid>
                     </Grid>
                 </Box>
             </Modal>
             {!!snackbar && (
-                <Snackbar 
-                open 
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }} 
-                onClose={handleCloseSnackbar} 
-                autoHideDuration={6000}>
+                <Snackbar open anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }} onClose={handleCloseSnackbar} autoHideDuration={6000}>
                     <Alert {...snackbar} onClose={handleCloseSnackbar} />
                 </Snackbar>
             )}

@@ -19,7 +19,7 @@ import Alert, { AlertProps } from '@mui/material/Alert';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddApplicationModal from './add-application-modal'; // Import the modal
-import { lastStepOptions, statusOptions } from '../constants/constants';
+import { lastStepOptions, statusOptions, modalitiesOptions } from '../constants/constants';
 import { Application } from '../types';
 
 import { formatDate } from '../lib/utils';
@@ -90,7 +90,7 @@ function CustomToolbar({
     );
 }
 
-export default function CustomDataGrid(data: { applicationsData: Application[]; funcUpdatedApplication:React.Dispatch<React.SetStateAction<boolean>>}){
+export default function CustomDataGrid({ applicationsData, funcUpdatedApplication }: { applicationsData: Application[]; funcUpdatedApplication: React.Dispatch<React.SetStateAction<boolean>> }){
 
   //const [rows, setRows] = React.useState<Application[]>(data.applicationsData);
   const [selectionModel, setSelectionModel] = React.useState<number[]>([]);
@@ -99,7 +99,7 @@ export default function CustomDataGrid(data: { applicationsData: Application[]; 
   'children' | 'severity'
 > | null>(null);
 
-  function setColumns(applicationsData:Application[]){
+  function setColumns(applicationsData: Application[]){
 
     companyOptions = [...new Set(applicationsData.map((app) => app.company).filter(Boolean))];
     
@@ -135,6 +135,7 @@ export default function CustomDataGrid(data: { applicationsData: Application[]; 
           }, },
         { field: 'salary_min', headerName: 'Salary Min', width: 100, editable: true },
         { field: 'salary_max', headerName: 'Salary Max', width: 100, editable: true },
+        { field: 'modality', headerName: 'Modality', width: 140, editable: true, type: 'singleSelect', valueOptions: modalitiesOptions },
         {
             field: 'status',
             headerName: 'Status',
@@ -181,7 +182,7 @@ export default function CustomDataGrid(data: { applicationsData: Application[]; 
       ];
   }
   
-  setColumns(data.applicationsData)
+  setColumns(applicationsData)
 
   const handleCloseSnackbar = () => setSnackbar(null);
 
@@ -202,7 +203,7 @@ export default function CustomDataGrid(data: { applicationsData: Application[]; 
     });
 
     // Trigger parent to refetch data
-    data.funcUpdatedApplication(prev => !prev);
+    funcUpdatedApplication(prev => !prev);
 
     // Clear selection
     setSelectionModel([]);
@@ -235,7 +236,7 @@ export default function CustomDataGrid(data: { applicationsData: Application[]; 
         const response = await fetch(`/api/application/${newRow.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newRow),
+          body: JSON.stringify({ ...newRow, modality: newRow.modality ?? null }),
         });
 
         if (!response.ok) {
@@ -244,7 +245,7 @@ export default function CustomDataGrid(data: { applicationsData: Application[]; 
         }
 
         setSnackbar({ children: 'Application successfully saved', severity: 'success' });
-        data.funcUpdatedApplication(prev => !prev);
+        funcUpdatedApplication(prev => !prev);
 
         return newRow;
       } catch (error: unknown) {
@@ -254,7 +255,7 @@ export default function CustomDataGrid(data: { applicationsData: Application[]; 
         throw error;
       }
     },
-  [],
+  [funcUpdatedApplication],
   );
 
   const handleProcessRowUpdateError = React.useCallback((error: Error) => {
@@ -265,12 +266,12 @@ return (
     <div style={{height: '100vh'}}>
         <Paper sx={{ height: '80%', width: '100%' }}>
             <DataGrid
-            rows={data.applicationsData}
+            rows={applicationsData}
             columns={columns}
             processRowUpdate={processRowUpdate}
             onProcessRowUpdateError={handleProcessRowUpdateError}
-            paginationModel={{ page: 0, pageSize: data.applicationsData.length }} // Show all rows
-            pageSizeOptions={[data.applicationsData.length]} // Only allow one page size
+            paginationModel={{ page: 0, pageSize: applicationsData.length }} // Show all rows
+            pageSizeOptions={[applicationsData.length]} // Only allow one page size
             initialState={{ 
                 columns:{
                     columnVisibilityModel:{
@@ -291,7 +292,7 @@ return (
             editMode="row"
             slots={{
                 toolbar: () => <CustomToolbar 
-                funcUpdatedApplication={data.funcUpdatedApplication}
+                funcUpdatedApplication={funcUpdatedApplication}
                 onBulkDelete={handleBulkDelete}
                 selectedCount={selectionModel.length}
                 />
