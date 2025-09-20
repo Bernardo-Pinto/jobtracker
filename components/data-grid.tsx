@@ -112,6 +112,7 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
   'children' | 'severity'
 > | null>(null);
   const [docsMap, setDocsMap] = React.useState<Record<number, { id: number; filename: string }[]>>({});
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = React.useState(false);
   // Notes dialog state
   const [notesDialogOpen, setNotesDialogOpen] = React.useState(false);
   const [notesEditMode, setNotesEditMode] = React.useState(false);
@@ -422,35 +423,31 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
     return () => controller.abort();
   }, [applicationsData]);
 
-  const handleBulkDelete = async () => {
-    if (!window.confirm(`Are you sure you want to delete ${selectionModel.length} applications?`)) return;
-
+  const performBulkDelete = async () => {
     try {
       await Promise.all(
         selectionModel.map(async id => {
           const response = await fetch(`/api/application/${id}`, { method: 'DELETE' });
           if (!response.ok) throw new Error(`Failed to delete application ${id}`);
         })
-    );
+      );
 
-    setSnackbar({ 
-    children: `Successfully deleted ${selectionModel.length} applications`, 
-    severity: 'success' 
-    });
+      setSnackbar({ 
+        children: `Successfully deleted ${selectionModel.length} applications`, 
+        severity: 'success' 
+      });
 
-    // Trigger parent to refetch data
-    funcUpdatedApplication(prev => !prev);
+      // Trigger parent to refetch data
+      funcUpdatedApplication(prev => !prev);
 
-    // Clear selection
-    setSelectionModel([]);
-
-    } catch{
-        setSnackbar({ 
-          children: 'Failed to delete some applications', 
-          severity: 'error' 
-        });
-      }
-    };
+      // Clear selection
+      setSelectionModel([]);
+    } catch {
+      setSnackbar({ children: 'Failed to delete some applications', severity: 'error' });
+    } finally {
+      setConfirmDeleteOpen(false);
+    }
+  };
 
 
   const processRowUpdate = React.useCallback(
@@ -674,7 +671,7 @@ return (
             slots={{
                 toolbar: () => <CustomToolbar 
                 funcUpdatedApplication={funcUpdatedApplication}
-                onBulkDelete={handleBulkDelete}
+                onBulkDelete={() => setConfirmDeleteOpen(true)}
                 selectedCount={selectionModel.length}
                 />
               }}
@@ -685,6 +682,16 @@ return (
                 },
             }}
             />
+            <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)} maxWidth="xs" fullWidth>
+              <DialogTitle>Delete {selectionModel.length} selected?</DialogTitle>
+              <DialogContent dividers>
+                This action cannot be undone.
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setConfirmDeleteOpen(false)}>Cancel</Button>
+                <Button color="error" variant="contained" onClick={performBulkDelete} disabled={selectionModel.length === 0}>Delete</Button>
+              </DialogActions>
+            </Dialog>
             <Dialog open={notesDialogOpen} onClose={closeNotesDialog} fullWidth maxWidth="sm" disableScrollLock>
               <DialogTitle>Notes{notesRow ? ` — ${notesRow.company} • ${notesRow.title}` : ''}</DialogTitle>
               <DialogContent dividers>
