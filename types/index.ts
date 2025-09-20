@@ -12,3 +12,12 @@ export interface Application {
     last_updated: string;
     notes: string;
 }
+
+export interface ApplicationDoc {
+    id: number;
+    application_id: number;
+    filename: string;
+    mime_type: string;
+    stored_path: string;
+    uploaded_at: string;
+}

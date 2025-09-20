@@ -6,6 +6,8 @@ import {useState } from 'react';
 import { Button } from "@mui/material"
 import { DataGrid, GridColDef} from '@mui/x-data-grid';
 import Paper from '@mui/material/Paper';
+import Tooltip from '@mui/material/Tooltip';
+import DescriptionIcon from '@mui/icons-material/Description';
 import {
     GridToolbarContainer,
     GridToolbarColumnsButton,
@@ -18,6 +20,7 @@ import Snackbar from '@mui/material/Snackbar';
 import Alert, { AlertProps } from '@mui/material/Alert';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import AddApplicationModal from './add-application-modal'; // Import the modal
 import { lastStepOptions, statusOptions, modalitiesOptions } from '../constants/constants';
 import { Application } from '../types';
@@ -98,6 +101,7 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
   AlertProps,
   'children' | 'severity'
 > | null>(null);
+  const [docsMap, setDocsMap] = React.useState<Record<number, { id: number; filename: string }[]>>({});
 
   function setColumns(applicationsData: Application[]){
 
@@ -136,6 +140,23 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
         { field: 'salary_min', headerName: 'Salary Min', width: 100, editable: true },
         { field: 'salary_max', headerName: 'Salary Max', width: 100, editable: true },
         { field: 'modality', headerName: 'Modality', width: 140, editable: true, type: 'singleSelect', valueOptions: modalitiesOptions },
+        { field: 'docs', headerName: 'Docs', width: 180, sortable: false, filterable: false,
+          renderCell: (params) => {
+            const appId = Number(params.id);
+            const docs = docsMap[appId] || [];
+            return (
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                {docs.map((d) => (
+                  <Tooltip key={d.id} title={d.filename} placement="top">
+                    <a href={`/api/docs/${d.id}`} target="_blank" rel="noopener noreferrer" aria-label={d.filename}>
+                      <DescriptionIcon fontSize="small" />
+                    </a>
+                  </Tooltip>
+                ))}
+              </div>
+            );
+          }
+        },
         {
             field: 'status',
             headerName: 'Status',
@@ -179,12 +200,70 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
             }
          },
         { field: 'notes', headerName: 'Notes', width: 300, editable: true },
+        { field: 'actions', headerName: 'Actions', width: 140, sortable: false, filterable: false,
+          renderCell: (params) => {
+            const appId = Number(params.id);
+            const fileInputId = `upload-${appId}`;
+            const onPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const fd = new FormData();
+              fd.append('file', file);
+              const res = await fetch(`/api/application/${appId}/docs`, { method: 'POST', body: fd });
+              if (res.ok) {
+                // refresh docs for this row only
+                const r = await fetch(`/api/application/docs?ids=${appId}`);
+                if (r.ok) {
+                  const data: Record<number, { id: number; filename: string }[]> = await r.json();
+                  setDocsMap((prev) => ({ ...prev, ...data }));
+                }
+              } else{
+                const error = res.status == 413 ? 'File too large' 
+                : res.status === 415 ? 'Unsupported file type' 
+                : res.statusText || 'Unknown error';
+                setSnackbar({ children: error, severity: 'error' });
+              }
+              // clear input so same file can be re-selected
+              (e.target as HTMLInputElement).value = '';
+            };
+            return (
+              <div>
+                <input id={fileInputId} type="file" style={{ display: 'none' }} onChange={onPick} />
+                <label htmlFor={fileInputId}>
+                  <Button component="span" size="small" startIcon={<UploadFileIcon />}>Upload</Button>
+                </label>
+              </div>
+            );
+          }
+        },
       ];
   }
   
   setColumns(applicationsData)
 
   const handleCloseSnackbar = () => setSnackbar(null);
+
+  // Load docs map when applications change
+  React.useEffect(() => {
+    const ids = applicationsData.map((a) => a.id);
+    if (ids.length === 0) {
+      setDocsMap({});
+      return;
+    }
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/application/docs?ids=${ids.join(',')}`, { signal: controller.signal });
+        if (!res.ok) return;
+        const data: Record<number, { id: number; filename: string }[]> = await res.json();
+        setDocsMap(data);
+      } catch {
+        /* ignore */
+      }
+    };
+    load();
+    return () => controller.abort();
+  }, [applicationsData]);
 
   const handleBulkDelete = async () => {
     if (!window.confirm(`Are you sure you want to delete ${selectionModel.length} applications?`)) return;
