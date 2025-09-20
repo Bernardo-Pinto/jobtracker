@@ -126,7 +126,7 @@ docker build -t jobtracker:latest .
 docker volume create jobtracker-data
 
 #Tag with imageID and push
-docker tag <TAG> bernardortp2/jobtracker:latest
+docker tag <iID> bernardortp2/jobtracker:latest
 docker push bernardortp2/jobtracker:latest
 
 # Run the app with the volume mounted at /data
