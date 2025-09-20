@@ -15,9 +15,11 @@ export function runMigrations(db: Database.Database) {
   const dir = path.join(root, 'migrations');
   if (!fs.existsSync(dir)) return;
 
-  const applied = new Set<string>(
-    db.prepare("SELECT name FROM _migrations ORDER BY name").all().map((r: any) => r.name)
-  );
+  const rows = db
+    .prepare("SELECT name FROM _migrations ORDER BY name")
+    .all() as Array<{ name: string }>;
+
+  const applied = new Set<string>(rows.map((r) => r.name));
 
   const files = fs.readdirSync(dir)
     .filter(f => f.endsWith('.sql'))
