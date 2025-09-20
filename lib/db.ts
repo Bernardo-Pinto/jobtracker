@@ -61,7 +61,7 @@ export async function addApplication(application: Application): Promise<void> {
 
         db.prepare(`INSERT INTO applications 
             (company, title, link, applied_on, salary_min, salary_max, modality, status, last_step, last_updated, notes) 
-            VALUES (?,?,?,?,?,?,?,?,?,?)`).run(
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)`).run(
             application.company,
             application.title,
             application.link,
