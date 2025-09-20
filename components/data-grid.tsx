@@ -10,7 +10,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import IconButton from '@mui/material/IconButton';
-import { DataGrid, GridColDef, GridRenderCellParams, GridRenderEditCellParams } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridRenderCellParams, GridRenderEditCellParams, useGridApiRef } from '@mui/x-data-grid';
 import Paper from '@mui/material/Paper';
 import Tooltip from '@mui/material/Tooltip';
 import DescriptionIcon from '@mui/icons-material/Description';
@@ -104,6 +104,8 @@ function CustomToolbar({
 export default function CustomDataGrid({ applicationsData, funcUpdatedApplication }: { applicationsData: Application[]; funcUpdatedApplication: React.Dispatch<React.SetStateAction<boolean>> }){
 
   //const [rows, setRows] = React.useState<Application[]>(data.applicationsData);
+  const apiRef = useGridApiRef();
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
   const [selectionModel, setSelectionModel] = React.useState<number[]>([]);
   const [snackbar, setSnackbar] = React.useState<Pick<
   AlertProps,
@@ -126,12 +128,13 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
     };
 
     columns = [
-        { field: 'id', headerName: 'ID', width: 70 },
+        { field: 'id', headerName: 'ID', width: 70, align: 'center', headerAlign: 'center' },
         { 
           field: 'company', 
           headerName: 'Company', 
-          flex: 1, 
-          minWidth: 120,
+          minWidth: 80,
+          align: 'center',
+          headerAlign: 'center',
           editable: true,
           renderCell: (params) => (
             <Tooltip title={params.value || ''} placement="top">
@@ -144,8 +147,9 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
         { 
           field: 'title', 
           headerName: 'Title', 
-          flex: 1.5, 
-          minWidth: 160,
+          minWidth: 100,
+          align: 'center',
+          headerAlign: 'center',
           editable: true,
           renderCell: (params) => (
             <Tooltip title={params.value || ''} placement="top">
@@ -160,6 +164,8 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
             headerName: 'Link',
             width: 56,
             editable: true,
+            align: 'center',
+            headerAlign: 'center',
             renderCell: (params) => {
               const raw = (params.row as { link?: string }).link || '';
               const trimmed = raw.trim();
@@ -187,7 +193,7 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
               );
             },
         },
-        { field: 'applied_on', headerName: 'Applied On', width: 120, editable: true,
+        { field: 'applied_on', headerName: 'Applied On', width: 120, editable: true, align: 'center', headerAlign: 'center',
             renderCell: (params) => {
               const date = new Date(params.value);
               if (isNaN(date.getTime())) {
@@ -202,6 +208,8 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
           sortable: true,
           filterable: true,
           type: 'number',
+          align: 'center',
+          headerAlign: 'center',
           valueGetter: (params) => {
             type RowShape = { salary_min?: number | null; salary_max?: number | null };
             const p = params as unknown as { row?: RowShape } | undefined;
@@ -243,16 +251,19 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
           },
         },
   // Hidden underlying fields to support editing via the composite Salary column
-  { field: 'salary_min', headerName: 'Salary Min', width: 90, editable: true },
-  { field: 'salary_max', headerName: 'Salary Max', width: 90, editable: true },
-        { field: 'modality', headerName: 'Modality', width: 140, editable: true, type: 'singleSelect', valueOptions: modalitiesOptions },
+  { field: 'salary_min', headerName: 'Salary Min', width: 90, editable: true, align: 'center', headerAlign: 'center' },
+  { field: 'salary_max', headerName: 'Salary Max', width: 90, editable: true, align: 'center', headerAlign: 'center' },
+  { field: 'modality', headerName: 'Modality', editable: true, type: 'singleSelect', valueOptions: modalitiesOptions, align: 'center', headerAlign: 'center', minWidth: 200 },
         {
             field: 'status',
             headerName: 'Status',
-            width: 130,
+            // width will be autosized; keep initial small to avoid excess
+            width: 60,
             type: 'singleSelect',
             valueOptions: statusOptions, 
             editable: true,
+            align: 'center',
+            headerAlign: 'center',
             renderCell: (params) => {
               const label = String(params.value ?? '');
               const color = statusColors[label] || '#9e9e9e';
@@ -277,12 +288,14 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
         {
             field: 'last_step',
             headerName: 'Last Step',
-            width: 150,
+            width: 90,
             type: 'singleSelect',
             valueOptions: lastStepOptions, 
-            editable: true
+            editable: true,
+            align: 'center',
+            headerAlign: 'center',
         },
-        { field: 'last_updated', headerName: 'Last Updated On', width: 120, editable: false,
+        { field: 'last_updated', headerName: 'Last Updated On', width: 120, editable: false, align: 'center', headerAlign: 'center',
             renderCell: (params) => {
                 const date = new Date(params.value);
                 if (isNaN(date.getTime())) {
@@ -321,7 +334,7 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
             );
           },
         },
-                { field: 'docs', headerName: 'Docs', width: 180, sortable: false, filterable: false,
+                { field: 'docs', headerName: 'Docs', width: 56, sortable: false, filterable: false, align: 'center', headerAlign: 'center',
           renderCell: (params) => {
             const appId = Number(params.id);
             const docs = docsMap[appId] || [];
@@ -338,7 +351,7 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
             );
           }
         },
-        { field: 'actions', headerName: 'Actions', width: 140, sortable: false, filterable: false,
+  { field: 'actions', headerName: 'Actions', width: 56, sortable: false, filterable: false, align: 'center', headerAlign: 'center',
           renderCell: (params) => {
             const appId = Number(params.id);
             const fileInputId = `upload-${appId}`;
@@ -368,7 +381,11 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
               <div>
                 <input id={fileInputId} type="file" style={{ display: 'none' }} onChange={onPick} />
                 <label htmlFor={fileInputId}>
-                  <Button component="span" size="small" startIcon={<UploadFileIcon />}>Upload</Button>
+                  <Tooltip title="Upload document" placement="top">
+                    <IconButton component="span" size="small" aria-label="Upload document">
+                      <UploadFileIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                 </label>
               </div>
             );
@@ -479,6 +496,110 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
     setSnackbar({ children: error.message, severity: 'error' });
   }, []);
 
+  // Autosize columns to fit content and headers
+  React.useEffect(() => {
+    const api = apiRef.current;
+    if (!api) return;
+    // Create canvas for measuring text
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+  const root = containerRef.current || document.body;
+  const style = window.getComputedStyle(root);
+  const fontSize = style.fontSize || '14px';
+  const fontFamily = style.fontFamily || 'Roboto, Arial, sans-serif';
+  const bodyFont = `${fontSize} ${fontFamily}`;
+  const headerFont = `500 ${fontSize} ${fontFamily}`; // headers are typically semi-bold
+  ctx.font = bodyFont;
+
+  const padding = 16; // tighter left+right padding
+    const fmtSalary = (min: number | null, max: number | null) => {
+      const fmt = (n: number | null) => {
+        if (n == null) return '';
+        if (Math.abs(n) < 1000) return String(n);
+        const k = n / 1000;
+        const text = Number.isInteger(k) ? String(k) : (Math.abs(n) % 1000 === 0 ? String(k) : k.toFixed(1));
+        return `${text}k`;
+      };
+      return `${fmt(min)}${min != null || max != null ? '–' : ''}${fmt(max)}`;
+    };
+
+    const getHeader = (col: GridColDef) => String(col.headerName ?? col.field ?? '');
+    const measure = (s: string) => {
+      ctx.font = bodyFont;
+      return Math.ceil(ctx.measureText(s).width);
+    };
+    const measureHeader = (s: string) => {
+      ctx.font = headerFont;
+      return Math.ceil(ctx.measureText(s).width);
+    };
+
+    for (const col of columns) {
+      // Keep hidden/minor fields as-is
+      if (col.field === 'salary_min' || col.field === 'salary_max') continue;
+  let width = measureHeader(getHeader(col)) + padding;
+
+      if (col.field === 'link' || col.field === 'notes' || col.field === 'actions') {
+        width = Math.max(width, 48);
+      } else if (col.field === 'status') {
+        width = Math.max(width, 40); // dot + padding
+      } else if (col.field === 'docs') {
+        let maxIcons = 0;
+        for (const r of applicationsData) {
+          const count = (docsMap[r.id] || []).length;
+          if (count > maxIcons) maxIcons = count;
+        }
+        const iconsWidth = maxIcons > 0 ? maxIcons * 22 + 8 : 22; // icon size ~20 + tighter gap
+        width = Math.max(width, iconsWidth);
+      } else if (col.field === 'salary') {
+        let maxCell = 0;
+        for (const r of applicationsData) {
+          const s = fmtSalary(r.salary_min ?? null, r.salary_max ?? null);
+          maxCell = Math.max(maxCell, measure(s));
+        }
+        width = Math.max(width, maxCell + padding);
+      } else if (col.field === 'applied_on' || col.field === 'last_updated') {
+        let maxCell = 0;
+        for (const r of applicationsData) {
+          const raw = col.field === 'applied_on' ? r.applied_on : r.last_updated;
+          const d = new Date(raw);
+          const s = isNaN(d.getTime()) ? 'Invalid Date' : formatDate(d);
+          maxCell = Math.max(maxCell, measure(s));
+        }
+        width = Math.max(width, maxCell + padding);
+      } else {
+        // generic text columns
+        let maxCell = 0;
+        for (const r of applicationsData) {
+          const rec = r as unknown as Record<string, unknown>;
+          const v = rec[col.field as keyof Application];
+          const s = typeof v === 'string' ? v : v == null ? '' : String(v);
+          maxCell = Math.max(maxCell, measure(s));
+        }
+        width = Math.max(width, maxCell + padding);
+      }
+      // Clamp to reasonable bounds
+  const min = 40;
+  const max = col.field === 'modality' ? 340 : 480;
+      const finalWidth = Math.min(Math.max(width, min), max);
+      try {
+        api.setColumnWidth(col.field, finalWidth);
+      } catch {
+        // ignore
+      }
+    }
+  }, [applicationsData, docsMap, apiRef]);
+
+  React.useEffect(() => {
+    const onResize = () => {
+      // trigger autosize on resize
+      // change state dependency by toggling a no-op state would be heavy; instead just re-run by forcing effect
+      // call the same logic by updating a state is overkill; simplest is to rely on window resize not changing deps
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   // Notes dialog handlers
   const closeNotesDialog = () => {
     setNotesDialogOpen(false);
@@ -523,8 +644,9 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
   
 return (
     <div style={{height: '100vh'}}>
-        <Paper sx={{ height: '80%', width: '100%' }}>
+    <Paper sx={{ height: '80%', width: '100%' }} ref={containerRef}>
             <DataGrid
+            apiRef={apiRef}
             rows={applicationsData}
             columns={columns}
             processRowUpdate={processRowUpdate}
