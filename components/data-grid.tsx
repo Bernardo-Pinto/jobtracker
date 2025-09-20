@@ -4,7 +4,8 @@ import * as React from 'react';
 import {useState } from 'react';
 
 import { Button } from "@mui/material"
-import { DataGrid, GridColDef} from '@mui/x-data-grid';
+import IconButton from '@mui/material/IconButton';
+import { DataGrid, GridColDef, GridRenderCellParams, GridRenderEditCellParams } from '@mui/x-data-grid';
 import Paper from '@mui/material/Paper';
 import Tooltip from '@mui/material/Tooltip';
 import DescriptionIcon from '@mui/icons-material/Description';
@@ -20,6 +21,8 @@ import Snackbar from '@mui/material/Snackbar';
 import Alert, { AlertProps } from '@mui/material/Alert';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import LinkOffIcon from '@mui/icons-material/LinkOff';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import AddApplicationModal from './add-application-modal'; // Import the modal
 import { lastStepOptions, statusOptions, modalitiesOptions } from '../constants/constants';
@@ -28,7 +31,6 @@ import { Application } from '../types';
 import { formatDate } from '../lib/utils';
 
 
-let companyOptions:string[] = []
 let columns: GridColDef[] = []
 
 
@@ -103,9 +105,8 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
 > | null>(null);
   const [docsMap, setDocsMap] = React.useState<Record<number, { id: number; filename: string }[]>>({});
 
-  function setColumns(applicationsData: Application[]){
-
-    companyOptions = [...new Set(applicationsData.map((app) => app.company).filter(Boolean))];
+  function setColumns(){
+    
     
     const statusColors: Record<string, string> = {
         Waiting: '#FFD600',         // Yellow
@@ -115,19 +116,65 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
 
     columns = [
         { field: 'id', headerName: 'ID', width: 70 },
-        { field: 'company', headerName: 'Company', width: 130, type: 'singleSelect', valueOptions: companyOptions, editable: true },
-        { field: 'title', headerName: 'Title', width: 200, editable: true},
+        { 
+          field: 'company', 
+          headerName: 'Company', 
+          flex: 1, 
+          minWidth: 120,
+          editable: true,
+          renderCell: (params) => (
+            <Tooltip title={params.value || ''} placement="top">
+              <span style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
+                {params.value}
+              </span>
+            </Tooltip>
+          ),
+        },
+        { 
+          field: 'title', 
+          headerName: 'Title', 
+          flex: 1.5, 
+          minWidth: 160,
+          editable: true,
+          renderCell: (params) => (
+            <Tooltip title={params.value || ''} placement="top">
+              <span style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
+                {params.value}
+              </span>
+            </Tooltip>
+          ),
+        },
         {
             field: 'link',
             headerName: 'Link',
-            width: 110,
+            width: 56,
             editable: true,
-            renderCell: (params) => (
-                <Button 
-                variant="text" 
-                onClick={() => window.open(params.value, '_blank', 'noopener,noreferrer')}
-                >View Job</Button>
-            ),
+            renderCell: (params) => {
+              const raw = (params.row as { link?: string }).link || '';
+              const trimmed = raw.trim();
+              if (!trimmed) {
+                return (
+                  <Tooltip title="No link" placement="top">
+                    <span>
+                      <LinkOffIcon fontSize="small" color="disabled" />
+                    </span>
+                  </Tooltip>
+                );
+              }
+              const hasScheme = /^(https?:)?\/\//i.test(trimmed);
+              const normalized = hasScheme ? trimmed : `https://${trimmed}`;
+              const onClick = (e: React.MouseEvent) => {
+                e.stopPropagation();
+                window.open(normalized, '_blank', 'noopener,noreferrer');
+              };
+              return (
+                <Tooltip title={normalized} placement="top">
+                  <IconButton aria-label="Open link" size="small" onClick={onClick}>
+                    <OpenInNewIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              );
+            },
         },
         { field: 'applied_on', headerName: 'Applied On', width: 120, editable: true,
             renderCell: (params) => {
@@ -137,26 +184,57 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
               }
               return formatDate(date);
           }, },
-        { field: 'salary_min', headerName: 'Salary Min', width: 100, editable: true },
-        { field: 'salary_max', headerName: 'Salary Max', width: 100, editable: true },
-        { field: 'modality', headerName: 'Modality', width: 140, editable: true, type: 'singleSelect', valueOptions: modalitiesOptions },
-        { field: 'docs', headerName: 'Docs', width: 180, sortable: false, filterable: false,
-          renderCell: (params) => {
-            const appId = Number(params.id);
-            const docs = docsMap[appId] || [];
+        {
+          field: 'salary',
+          headerName: 'Salary',
+          width: 120,
+          sortable: true,
+          filterable: true,
+          type: 'number',
+          valueGetter: (params) => {
+            type RowShape = { salary_min?: number | null; salary_max?: number | null };
+            const p = params as unknown as { row?: RowShape } | undefined;
+            const r = p?.row;
+            const min = (r && (typeof r.salary_min === 'number' || r.salary_min === null)) ? r.salary_min : null;
+            const max = (r && (typeof r.salary_max === 'number' || r.salary_max === null)) ? r.salary_max : null;
+            return min ?? max ?? null;
+          },
+          renderCell: (params: GridRenderCellParams) => {
+            const row = params.row as { salary_min: number | null; salary_max: number | null };
+            const min = row.salary_min as number | null;
+            const max = row.salary_max as number | null;
+            const fmt = (n: number | null) => {
+              if (n == null) return '';
+              if (Math.abs(n) < 1000) return String(n);
+              const k = n / 1000;
+              const text = Number.isInteger(k) ? String(k) : (Math.abs(n) % 1000 === 0 ? String(k) : k.toFixed(1));
+              return `${text}k`;
+            };
+            return <span>{fmt(min)}{min != null || max != null ? '–' : ''}{fmt(max)}</span>;
+          },
+          editable: true,
+          renderEditCell: (params: GridRenderEditCellParams<GridRowModel>) => {
+            const row = params.row as GridRowModel;
+            const min = row.salary_min as number | null;
+            const max = row.salary_max as number | null;
+            const onChange = (which: 'min' | 'max') => (e: React.ChangeEvent<HTMLInputElement>) => {
+              const val = e.target.value === '' ? null : Number(e.target.value);
+              const field = which === 'min' ? 'salary_min' : 'salary_max';
+              params.api.setEditCellValue({ id: params.id, field, value: val }, e);
+            };
             return (
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                {docs.map((d) => (
-                  <Tooltip key={d.id} title={d.filename} placement="top">
-                    <a href={`/api/docs/${d.id}`} target="_blank" rel="noopener noreferrer" aria-label={d.filename}>
-                      <DescriptionIcon fontSize="small" />
-                    </a>
-                  </Tooltip>
-                ))}
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                <input type="number" style={{ width: 50 }} defaultValue={min ?? ''} onChange={onChange('min')} />
+                <span>–</span>
+                <input type="number" style={{ width: 50 }} defaultValue={max ?? ''} onChange={onChange('max')} />
               </div>
             );
-          }
+          },
         },
+  // Hidden underlying fields to support editing via the composite Salary column
+  { field: 'salary_min', headerName: 'Salary Min', width: 90, editable: true },
+  { field: 'salary_max', headerName: 'Salary Max', width: 90, editable: true },
+        { field: 'modality', headerName: 'Modality', width: 140, editable: true, type: 'singleSelect', valueOptions: modalitiesOptions },
         {
             field: 'status',
             headerName: 'Status',
@@ -164,23 +242,26 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
             type: 'singleSelect',
             valueOptions: statusOptions, 
             editable: true,
-            renderCell: (params) => (
-            <div
-                style={{
-                  backgroundColor: statusColors[params.value] || 'transparent',
-                  color: '#000000ff',
-                  width: '100%',
-                  height: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 500,
-                  borderRadius: 0, // Remove rounded corners for full fill
-                }}
-              >
-                    {params.value}
+            renderCell: (params) => {
+              const label = String(params.value ?? '');
+              const color = statusColors[label] || '#9e9e9e';
+              return (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Tooltip title={label} placement="top">
+                    <span
+                      aria-label={label}
+                      style={{
+                        display: 'inline-block',
+                        width: 20,
+                        height: 20,
+                        borderRadius: '50%',
+                        backgroundColor: color,
+                      }}
+                    />
+                  </Tooltip>
                 </div>
-            ),
+              );
+            },
         },
         {
             field: 'last_step',
@@ -200,6 +281,23 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
             }
          },
         { field: 'notes', headerName: 'Notes', width: 300, editable: true },
+                { field: 'docs', headerName: 'Docs', width: 180, sortable: false, filterable: false,
+          renderCell: (params) => {
+            const appId = Number(params.id);
+            const docs = docsMap[appId] || [];
+            return (
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                {docs.map((d) => (
+                  <Tooltip key={d.id} title={d.filename} placement="top">
+                    <a href={`/api/docs/${d.id}`} target="_blank" rel="noopener noreferrer" aria-label={d.filename}>
+                      <DescriptionIcon fontSize="small" />
+                    </a>
+                  </Tooltip>
+                ))}
+              </div>
+            );
+          }
+        },
         { field: 'actions', headerName: 'Actions', width: 140, sortable: false, filterable: false,
           renderCell: (params) => {
             const appId = Number(params.id);
@@ -239,7 +337,7 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
       ];
   }
   
-  setColumns(applicationsData)
+  setColumns()
 
   const handleCloseSnackbar = () => setSnackbar(null);
 
@@ -355,6 +453,8 @@ return (
                 columns:{
                     columnVisibilityModel:{
                         id: false,
+                        salary_min: false,
+                        salary_max: false,
                     }
                 }
             }}
