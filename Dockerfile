@@ -21,5 +21,6 @@ COPY --from=build /app/app ./app
 COPY --from=build /app/constants ./constants
 COPY --from=build /app/types ./types
 COPY --from=build /app/scripts ./scripts
+COPY --from=build /app/migrations ./migrations
 EXPOSE 3000
 CMD ["npm","start"]

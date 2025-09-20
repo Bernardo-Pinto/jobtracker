@@ -137,5 +137,44 @@ Notes:
 - On first run with an empty volume, the app auto-creates the schema.
 - If you don’t pass a `-v` mount, Docker creates an anonymous volume for `/data` that won’t be reused by new containers.
 
+---
+
+## Schema migrations (data-safe upgrades)
+
+This project uses simple, file-based SQL migrations that run automatically when the app opens the database.
+
+- Migration files live in `migrations/` and must end with `.sql`.
+- Files are applied in lexical order once, and each applied filename is recorded in the `_migrations` table.
+- The DB path is controlled by `DATABASE_PATH` (defaults to `./database.db`; in Docker it’s `/data/database.db`).
+
+Included files:
+- `migrations/000_initial_schema.sql` — creates the `applications` table on fresh databases.
+- `migrations/001_add_column_modality.sql` — adds `modality` column and backfills unknown values.
+
+How migrations run:
+- In code: `lib/db.ts` calls `runMigrations(db)` during `openDb()`. Any request that touches the DB will apply pending migrations.
+- Locally (on demand): run `scripts/initDb.ts` to force-run migrations without starting the app.
+
+```powershell
+# Apply migrations locally (Windows PowerShell)
+npx tsx scripts/initDb.ts
+```
+
+Adding a new schema change:
+1) Create a new file, e.g. `migrations/002_add_example.sql`.
+2) Put your SQL inside (e.g., `ALTER TABLE applications ADD COLUMN example TEXT;`).
+3) Commit, build, and deploy your image. The migration will apply once against the existing DB on the volume.
+
+Backup before big changes (recommended):
+```powershell
+# Create a compressed backup of the volume to the current folder
+docker run --rm -v jobtracker-data:/data -v ${PWD}:/backup alpine sh -lc "cd /data && tar czf /backup/jobtracker-data_$(date +%Y%m%d%H%M%S).tgz ."
+```
+
+Restore (if needed):
+```powershell
+docker run --rm -v jobtracker-data:/data -v ${PWD}:/backup alpine sh -lc "cd /data && rm -f database.db && tar xzf /backup/<your-backup>.tgz"
+```
+
 ## Issue Tracker
 https://trello.com/b/5rxISNNw/jobseeker
