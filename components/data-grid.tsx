@@ -4,6 +4,11 @@ import * as React from 'react';
 import {useState } from 'react';
 
 import { Button } from "@mui/material"
+import TextField from '@mui/material/TextField';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import IconButton from '@mui/material/IconButton';
 import { DataGrid, GridColDef, GridRenderCellParams, GridRenderEditCellParams } from '@mui/x-data-grid';
 import Paper from '@mui/material/Paper';
@@ -24,6 +29,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import LinkOffIcon from '@mui/icons-material/LinkOff';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+import NotesIcon from '@mui/icons-material/Notes';
 import AddApplicationModal from './add-application-modal'; // Import the modal
 import { lastStepOptions, statusOptions, modalitiesOptions } from '../constants/constants';
 import { Application } from '../types';
@@ -104,6 +110,11 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
   'children' | 'severity'
 > | null>(null);
   const [docsMap, setDocsMap] = React.useState<Record<number, { id: number; filename: string }[]>>({});
+  // Notes dialog state
+  const [notesDialogOpen, setNotesDialogOpen] = React.useState(false);
+  const [notesEditMode, setNotesEditMode] = React.useState(false);
+  const [notesDraft, setNotesDraft] = React.useState('');
+  const [notesRow, setNotesRow] = React.useState<Application | null>(null);
 
   function setColumns(){
     
@@ -280,7 +291,36 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
                 return formatDate(date);
             }
          },
-        { field: 'notes', headerName: 'Notes', width: 300, editable: true },
+        { 
+          field: 'notes', 
+          headerName: 'Notes', 
+          width: 56, 
+          align: 'center',
+          headerAlign: 'center',
+          sortable: false,
+          filterable: false,
+          editable: false,
+          renderCell: (params) => {
+            const v = (params.value ?? '') as string;
+            if (!v || !v.trim()) return null;
+            const firstLine = v.split(/\r?\n/)[0].trim();
+            const truncated = firstLine.length > 80 ? `${firstLine.slice(0, 77)}...` : firstLine;
+            const onOpen = (e: React.MouseEvent) => {
+              e.stopPropagation();
+              setNotesRow(params.row as Application);
+              setNotesDraft(v);
+              setNotesEditMode(false);
+              setNotesDialogOpen(true);
+            };
+            return (
+              <Tooltip title={truncated} placement="top">
+                <IconButton size="small" onClick={onOpen} aria-label="View notes">
+                  <NotesIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            );
+          },
+        },
                 { field: 'docs', headerName: 'Docs', width: 180, sortable: false, filterable: false,
           renderCell: (params) => {
             const appId = Number(params.id);
@@ -438,6 +478,48 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
   const handleProcessRowUpdateError = React.useCallback((error: Error) => {
     setSnackbar({ children: error.message, severity: 'error' });
   }, []);
+
+  // Notes dialog handlers
+  const closeNotesDialog = () => {
+    setNotesDialogOpen(false);
+    setNotesEditMode(false);
+    setNotesDraft('');
+    setNotesRow(null);
+  };
+
+  const saveNotes = async () => {
+    if (!notesRow) return;
+    const updated: Application = {
+      ...notesRow,
+      notes: notesDraft,
+    };
+    try {
+      const res = await fetch(`/api/application/${updated.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || res.statusText || 'Failed to save notes');
+      }
+      setSnackbar({ children: 'Notes saved', severity: 'success' });
+      funcUpdatedApplication((p) => !p);
+      closeNotesDialog();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      setSnackbar({ children: msg, severity: 'error' });
+    }
+  };
+
+  const copyNotes = async () => {
+    try {
+      await navigator.clipboard.writeText(notesDraft);
+      setSnackbar({ children: 'Copied to clipboard', severity: 'success' });
+    } catch {
+      setSnackbar({ children: 'Copy failed', severity: 'error' });
+    }
+  };
   
 return (
     <div style={{height: '100vh'}}>
@@ -483,6 +565,40 @@ return (
                 },
             }}
             />
+            <Dialog open={notesDialogOpen} onClose={closeNotesDialog} fullWidth maxWidth="sm">
+              <DialogTitle>Notes{notesRow ? ` — ${notesRow.company} • ${notesRow.title}` : ''}</DialogTitle>
+              <DialogContent dividers>
+                {notesEditMode ? (
+                  <TextField
+                    autoFocus
+                    multiline
+                    minRows={8}
+                    fullWidth
+                    value={notesDraft}
+                    onChange={(e) => setNotesDraft(e.target.value)}
+                  />
+                ) : (
+                  <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{notesDraft}</div>
+                )}
+              </DialogContent>
+              <DialogActions>
+                {!notesEditMode && (
+                  <Button onClick={copyNotes}>Copy</Button>
+                )}
+                {!notesEditMode && (
+                  <Button onClick={() => setNotesEditMode(true)}>Edit</Button>
+                )}
+                {notesEditMode && (
+                  <Button onClick={() => setNotesEditMode(false)}>Cancel</Button>
+                )}
+                {notesEditMode && (
+                  <Button variant="contained" onClick={saveNotes}>Save</Button>
+                )}
+                {!notesEditMode && (
+                  <Button onClick={closeNotesDialog}>Close</Button>
+                )}
+              </DialogActions>
+            </Dialog>
             {!!snackbar && (
         <Snackbar
           open

@@ -4,6 +4,7 @@ import "./globals.css";
 
 //Material UI
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
+import AppThemeProvider from './theme-provider';
 
 
 const geistSans = Geist({
@@ -29,7 +30,9 @@ export default function RootLayout({children,}: Readonly<{children: React.ReactN
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
       <AppRouterCacheProvider>
-        {children}
+        <AppThemeProvider>
+          {children}
+        </AppThemeProvider>
       </AppRouterCacheProvider>
       </body>
     </html>
