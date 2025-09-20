@@ -14,9 +14,9 @@ export async function POST(request: Request): Promise<NextResponse> {
         const application = await request.json();
         console.log("POST to /api/application called with:");
         console.log(application);
-        await addApplication(application);
+    const newId = await addApplication(application);
 
-        return NextResponse.json({ message: 'Application added successfully' });
+    return NextResponse.json({ message: 'Application added successfully', id: newId });
     } catch (error) {
         console.error("Error in POST function:", error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

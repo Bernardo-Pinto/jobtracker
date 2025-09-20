@@ -52,14 +52,14 @@ export async function getApplications(): Promise<Application[]> {
     }));
 }
 
-export async function addApplication(application: Application): Promise<void> {
+export async function addApplication(application: Application): Promise<number> {
     try {
         console.log("addApplication called with:");
         console.log(application);
 
         const db = await openDb();
 
-        db.prepare(`INSERT INTO applications 
+    const info = db.prepare(`INSERT INTO applications 
             (company, title, link, applied_on, salary_min, salary_max, modality, status, last_step, last_updated, notes) 
             VALUES (?,?,?,?,?,?,?,?,?,?,?)`).run(
             application.company,
@@ -76,8 +76,12 @@ export async function addApplication(application: Application): Promise<void> {
         );
 
         console.log("Insertion successful.");
+    // Return the new application's ID
+    // better-sqlite3 RunResult has lastInsertRowid as number | bigint
+    return typeof info.lastInsertRowid === 'bigint' ? Number(info.lastInsertRowid) : info.lastInsertRowid;
     } catch (error) {
         console.error("Error in addApplication:", error);
+    throw error;
     }
 }
 

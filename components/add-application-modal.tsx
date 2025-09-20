@@ -2,6 +2,10 @@
 
 import { useState } from 'react';
 import { Modal, Box, TextField, Button, Typography, AlertProps, Snackbar, Alert } from '@mui/material';
+import Tooltip from '@mui/material/Tooltip';
+import IconButton from '@mui/material/IconButton';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
+import DescriptionIcon from '@mui/icons-material/Description';
 import Grid from '@mui/material/Grid2';
 import * as React from 'react';
 
@@ -28,6 +32,7 @@ export default function AddApplicationModal(
     { open: boolean; onClose: () => void; funcUpdatedApplication: React.Dispatch<React.SetStateAction<boolean>>; }
 ) {
     const [snackbar, setSnackbar] = useState<Pick<AlertProps, 'children' | 'severity'> | null>(null);
+    const [files, setFiles] = useState<File[]>([]);
 
     const [application, setApplication] = useState<Omit<Application, 'id'>>({
         company: '',
@@ -95,9 +100,27 @@ export default function AddApplicationModal(
             }
 
             const result = await response.json();
-            console.log(result.message); // "Application added successfully"
+            const newId = result.id as number | undefined;
+            console.log(result.message);
+
+            // Upload any selected files sequentially
+            if (newId && files.length > 0) {
+                for (const f of files) {
+                    const fd = new FormData();
+                    fd.append('file', f);
+                    const up = await fetch(`/api/application/${newId}/docs`, { method: 'POST', body: fd });
+                    if (!up.ok) {
+                        const error = up.status == 413 ? 'File too large' 
+                          : up.status === 415 ? 'Unsupported file type' 
+                          : await up.text();
+                        setSnackbar({ children: `Upload failed: ${error}`, severity: 'error' });
+                    }
+                }
+            }
+
             funcUpdatedApplication(prev => !prev);
             onClose(); // Close the modal after successful submission
+            setFiles([]);
         } catch (error) {
             console.error('Error adding application:', error);
             setSnackbar({ children: 'Failed to add application.', severity: 'error' });
@@ -174,9 +197,47 @@ export default function AddApplicationModal(
                             </TextField>
                         </Grid>
 
-                                    <Grid size={12}>
+                                                                        <Grid size={12}>
                             <TextField label="Notes" fullWidth margin="normal" multiline rows={4} value={application.notes} onChange={(e) => handleChange('notes', e.target.value)} />
                         </Grid>
+
+                                                {/* Documents picker */}
+                                                <Grid size={12}>
+                                                    <input
+                                                        id="new-app-docs"
+                                                        type="file"
+                                                        multiple
+                                                        style={{ display: 'none' }}
+                                                        onChange={(e) => {
+                                                            const list = Array.from(e.target.files ?? []);
+                                                            setFiles(list);
+                                                        }}
+                                                    />
+                                                    <label htmlFor="new-app-docs">
+                                                        <Tooltip title="Attach documents (pdf, doc, docx, txt; max 200KB each)">
+                                                            <IconButton component="span" size="small" aria-label="Attach documents">
+                                                                <UploadFileIcon />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                        <Typography variant="body2" component="span" sx={{ ml: 1 }}>
+                                                            {files.length === 0 ? 'No files selected' : `${files.length} file(s) selected`}
+                                                        </Typography>
+                                                    </label>
+                                                    {files.length > 0 && (
+                                                        <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                                            {files.map((f, idx) => (
+                                                                <Tooltip key={idx} title={f.name} placement="top">
+                                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                                                        <DescriptionIcon fontSize="small" />
+                                                                        <Typography variant="caption" sx={{ maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                            {f.name}
+                                                                        </Typography>
+                                                                    </span>
+                                                                </Tooltip>
+                                                            ))}
+                                                        </Box>
+                                                    )}
+                                                </Grid>
 
                                     <Grid size={12}>
                             <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
