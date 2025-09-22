@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { updateApplication, deleteApplication } from '../../../../lib/db';
+import { updateApplication, deleteApplication, openDb } from '../../../../lib/db';
 import { Application } from '../../../../types';
-import { statusOptions, lastStepOptions, modalitiesOptions } from '../../../../constants/constants';
 
 export async function PUT(
     request : Request,
@@ -11,8 +10,8 @@ export async function PUT(
         const body: Application = await request.json();
         const id = Number((await context.params).id);
 
-        // Required
-        if (!body.company || !body.title || !body.status || !body.last_step || !body.applied_on) {
+    // Required
+    if (!body.company || !body.title || !body.status || !body.last_step || !body.applied_on) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
@@ -42,13 +41,17 @@ export async function PUT(
             return NextResponse.json({ error: 'salary_min cannot exceed salary_max' }, { status: 400 });
         }
 
-        // Enums
-        const statusSet = new Set(statusOptions);
-        const lastStepSet = new Set(lastStepOptions);
-        const modalitySet = new Set(modalitiesOptions);
-        if (!statusSet.has(body.status)) return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
-        if (!lastStepSet.has(body.last_step)) return NextResponse.json({ error: 'Invalid last_step' }, { status: 400 });
-        if (body.modality !== null && body.modality !== undefined && !modalitySet.has(body.modality)) {
+        // Validate by id (FKs)
+        const db = await openDb();
+        const existsById = (type: 'status'|'last_step'|'modality', id?: number | null) => {
+            if (id == null) return type === 'modality';
+            if (!Number.isInteger(id)) return false;
+            const row = db.prepare(`SELECT id FROM field_values WHERE type = ? AND id = ? AND is_active = 1`).get(type, id) as { id: number } | undefined;
+            return !!row;
+        };
+        if (!existsById('status', body.status)) return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+        if (!existsById('last_step', body.last_step)) return NextResponse.json({ error: 'Invalid last_step' }, { status: 400 });
+        if (body.modality !== null && body.modality !== undefined && !existsById('modality', body.modality)) {
             return NextResponse.json({ error: 'Invalid modality' }, { status: 400 });
         }
 

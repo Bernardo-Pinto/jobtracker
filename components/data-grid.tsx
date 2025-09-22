@@ -31,8 +31,8 @@ import LinkOffIcon from '@mui/icons-material/LinkOff';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import NotesIcon from '@mui/icons-material/Notes';
 import AddApplicationModal from './add-application-modal'; // Import the modal
-import { lastStepOptions, statusOptions, modalitiesOptions } from '../constants/constants';
-import { Application } from '../types';
+import FieldValuesDialog from './field-values-dialog';
+import { Application, FieldValue } from '../types';
 
 import { formatDate } from '../lib/utils';
 
@@ -46,14 +46,17 @@ let columns: GridColDef[] = []
 function CustomToolbar({ 
   funcUpdatedApplication, 
   onBulkDelete, 
-  selectedCount 
+  selectedCount,
+  onConfigClosed,
 }: { 
   funcUpdatedApplication: React.Dispatch<React.SetStateAction<boolean>>;
   onBulkDelete: () => void;
   selectedCount: number;
+  onConfigClosed: () => void;
 }) {
 
     const [modalOpen, setModalOpen] = useState(false);
+  const [configOpen, setConfigOpen] = useState(false);
 
     const handleOpenModal = () => setModalOpen(true);
     const handleCloseModal = () => setModalOpen(false);
@@ -78,10 +81,11 @@ function CustomToolbar({
             </Button>
 
             {/* Include the default GridToolbar buttons */}
-            <GridToolbarColumnsButton />
+        <GridToolbarColumnsButton />
             <GridToolbarFilterButton />
             <GridToolbarDensitySelector />
             <GridToolbarExport />
+        <Button size="small" onClick={() => setConfigOpen(true)} sx={{ ml: 1 }}>Configure fields</Button>
             <Button
               color="error"
               disabled={selectedCount === 0}
@@ -97,6 +101,7 @@ function CustomToolbar({
          onClose={handleCloseModal} 
          funcUpdatedApplication={funcUpdatedApplication}
          />
+  <FieldValuesDialog open={configOpen} onClose={() => { setConfigOpen(false); onConfigClosed(); funcUpdatedApplication((p)=>!p); }} />
          </>
     );
 }
@@ -121,14 +126,52 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
   // Trigger autosize on actual window resizes
   const [resizeTick, setResizeTick] = React.useState(0);
 
-  function setColumns(){
-    
-    
-    const statusColors: Record<string, string> = {
-        Waiting: '#FFD600',         // Yellow
-        Rejected: '#FF1744',        // Red
-        'Needs action': '#2979FF',  // Blue (or use '#00E676' for Green)
+  const [statusOptions, setStatusOptions] = React.useState<Array<{ value: number; label: string }>>([]);
+  const [lastStepOptions, setLastStepOptions] = React.useState<Array<{ value: number; label: string }>>([]);
+  const [modalitiesOptions, setModalitiesOptions] = React.useState<Array<{ value: number; label: string }>>([]);
+  const [statusColors, setStatusColors] = React.useState<Record<number, string>>({});
+  const [labelById, setLabelById] = React.useState<{ status: Record<number, string>; last_step: Record<number, string>; modality: Record<number, string>}>({ status: {}, last_step: {}, modality: {} });
+  const [valuesLoaded, setValuesLoaded] = React.useState(false);
+  const [valuesTick, setValuesTick] = React.useState(0);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const fetchAll = async () => {
+      try {
+  // Use shared FieldValue; we'll only read id/label/color
+        const [stRaw, lsRaw, moRaw] = await Promise.all([
+          fetch('/api/values?type=status').then((r) => r.json()),
+          fetch('/api/values?type=last_step').then((r) => r.json()),
+          fetch('/api/values?type=modality').then((r) => r.json()),
+        ]);
+        if (cancelled) return;
+  const st = stRaw as FieldValue[];
+  const ls = lsRaw as FieldValue[];
+  const mo = moRaw as FieldValue[];
+  // Only expose active values in editors/selects
+  setStatusOptions(st.filter(x => x.is_active === 1).map((x) => ({ value: x.id, label: x.label })));
+        const colorMap: Record<number, string> = {};
+        for (const v of st) {
+          if (v.color) colorMap[v.id] = v.color.startsWith('#') ? v.color : `#${v.color}`;
+        }
+        setStatusColors(colorMap);
+  setLastStepOptions(ls.filter(x => x.is_active === 1).map((x) => ({ value: x.id, label: x.label })));
+  setModalitiesOptions(mo.filter(x => x.is_active === 1).map((x) => ({ value: x.id, label: x.label })));
+  setLabelById({
+          status: Object.fromEntries(st.map(v => [v.id, v.label])),
+          last_step: Object.fromEntries(ls.map(v => [v.id, v.label])),
+          modality: Object.fromEntries(mo.map(v => [v.id, v.label])),
+        });
+  setValuesLoaded(true);
+      } catch {
+        // ignore
+      }
     };
+    fetchAll();
+    return () => { cancelled = true; };
+  }, [valuesTick]);
+
+  function setColumns(){
 
     columns = [
         { field: 'id', headerName: 'ID', width: 70, align: 'center', headerAlign: 'center' },
@@ -256,7 +299,18 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
   // Hidden underlying fields to support editing via the composite Salary column
   { field: 'salary_min', headerName: 'Salary Min', width: 90, editable: true, align: 'center', headerAlign: 'center' },
   { field: 'salary_max', headerName: 'Salary Max', width: 90, editable: true, align: 'center', headerAlign: 'center' },
-  { field: 'modality', headerName: 'Modality', editable: true, type: 'singleSelect', valueOptions: modalitiesOptions, align: 'center', headerAlign: 'center', minWidth: 200 },
+  { field: 'modality', headerName: 'Modality', editable: true, type: 'singleSelect', valueOptions: modalitiesOptions, align: 'center', headerAlign: 'center', minWidth: 200,
+    valueFormatter: (p: { value: unknown }) => labelById.modality[Number(p.value)] ?? '',
+    renderCell: (params) => {
+      const id = Number(params.value);
+      const label = labelById.modality[id] ?? '';
+      return (
+        <Tooltip title={label} placement="top">
+          <span style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>{label}</span>
+        </Tooltip>
+      );
+    }
+  },
         {
             field: 'status',
             headerName: 'Status',
@@ -268,8 +322,9 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
             align: 'center',
             headerAlign: 'center',
             renderCell: (params) => {
-              const label = String(params.value ?? '');
-              const color = statusColors[label] || '#9e9e9e';
+              const id = Number(params.value);
+              const label = labelById.status[id] ?? '';
+              const color = statusColors[id] || '#9e9e9e';
               return (
                 <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Tooltip title={label} placement="top">
@@ -297,6 +352,16 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
             editable: true,
             align: 'center',
             headerAlign: 'center',
+            valueFormatter: (p: { value: unknown }) => labelById.last_step[Number(p.value)] ?? '',
+            renderCell: (params) => {
+              const id = Number(params.value);
+              const label = labelById.last_step[id] ?? '';
+              return (
+                <Tooltip title={label} placement="top">
+                  <span style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>{label}</span>
+                </Tooltip>
+              );
+            }
         },
         { field: 'last_updated', headerName: 'Last Updated On', width: 120, editable: false, align: 'center', headerAlign: 'center',
             renderCell: (params) => {
@@ -566,13 +631,17 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
           maxCell = Math.max(maxCell, measure(s));
         }
         width = Math.max(width, maxCell + padding);
-      } else {
+    } else {
         // generic text columns
         let maxCell = 0;
         for (const r of applicationsData) {
           const rec = r as unknown as Record<string, unknown>;
-          const v = rec[col.field as keyof Application];
-          const s = typeof v === 'string' ? v : v == null ? '' : String(v);
+      let v = rec[col.field as keyof Application];
+      // map ids to labels for measurement
+      if (col.field === 'status' && typeof v === 'number') v = labelById.status[v] ?? '';
+      if (col.field === 'last_step' && typeof v === 'number') v = labelById.last_step[v] ?? '';
+      if (col.field === 'modality' && typeof v === 'number') v = labelById.modality[v] ?? '';
+      const s = typeof v === 'string' ? v : v == null ? '' : String(v);
           maxCell = Math.max(maxCell, measure(s));
         }
         width = Math.max(width, maxCell + padding);
@@ -587,7 +656,7 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
         // ignore
       }
     }
-  }, [applicationsData, docsMap, apiRef, resizeTick, notesDialogOpen]);
+  }, [applicationsData, docsMap, apiRef, resizeTick, notesDialogOpen, labelById]);
 
   React.useEffect(() => {
     const onResize = () => setResizeTick((t) => t + 1);
@@ -640,6 +709,9 @@ export default function CustomDataGrid({ applicationsData, funcUpdatedApplicatio
 return (
     <div style={{height: '100vh'}}>
     <Paper sx={{ height: '80%', width: '100%' }} ref={containerRef}>
+            {!valuesLoaded ? (
+              <div style={{ padding: 16 }}>Loading fields…</div>
+            ) : (
             <DataGrid
             apiRef={apiRef}
             rows={applicationsData}
@@ -673,6 +745,7 @@ return (
                 funcUpdatedApplication={funcUpdatedApplication}
                 onBulkDelete={() => setConfirmDeleteOpen(true)}
                 selectedCount={selectionModel.length}
+                onConfigClosed={() => setValuesTick((t) => t + 1)}
                 />
               }}
               slotProps={{
@@ -682,6 +755,7 @@ return (
                 },
             }}
             />
+            )}
             <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)} maxWidth="xs" fullWidth>
               <DialogTitle>Delete {selectionModel.length} selected?</DialogTitle>
               <DialogContent dividers>

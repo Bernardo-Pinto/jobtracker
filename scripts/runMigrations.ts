@@ -33,6 +33,15 @@ export function runMigrations(db: Database.Database) {
   for (const name of files) {
     if (applied.has(name)) continue;
     const sql = fs.readFileSync(path.join(dir, name), 'utf8');
-    tx(sql, name);
+    // If the migration script manages its own transaction (BEGIN/COMMIT),
+    // execute it directly to avoid nested transaction errors in SQLite.
+    // TODO: is this really needed? can't i use remove the trnsaction in the migration?
+    const managesTxn = /\bBEGIN\s+TRANSACTION\b/i.test(sql) || /\bCOMMIT\b/i.test(sql) || /\bROLLBACK\b/i.test(sql);
+    if (managesTxn) {
+      db.exec(sql);
+      db.prepare("INSERT INTO _migrations (name) VALUES (?)").run(name);
+    } else {
+      tx(sql, name);
+    }
   }
 }

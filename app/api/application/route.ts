@@ -1,6 +1,5 @@
-import { getApplications, addApplication } from '../../../lib/db';
+import { getApplications, addApplication, openDb } from '../../../lib/db';
 import { Application } from '../../../types';
-import { statusOptions, lastStepOptions, modalitiesOptions } from '../../../constants/constants';
 import { NextResponse } from 'next/server';
 
 // GET /api/application
@@ -29,12 +28,12 @@ export async function POST(request: Request): Promise<NextResponse> {
         const appliedOnRaw = body.applied_on;
         const salaryMin = toNumberOrNull(body.salary_min);
         const salaryMax = toNumberOrNull(body.salary_max);
-        const modality = body.modality == null || body.modality === '' ? null : String(body.modality);
-        const status = trim(body.status);
-        const lastStep = trim(body.last_step);
+    const modality = body.modality == null || body.modality === '' ? null : Number(body.modality);
+    const status = Number(body.status);
+    const lastStep = Number(body.last_step);
         const notes = typeof body.notes === 'string' ? body.notes : '';
 
-        if (!company || !title || !status || !lastStep || !appliedOnRaw) {
+    if (!company || !title || !status || !lastStep || !appliedOnRaw) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
@@ -56,18 +55,17 @@ export async function POST(request: Request): Promise<NextResponse> {
             return NextResponse.json({ error: 'salary_min cannot exceed salary_max' }, { status: 400 });
         }
 
-        const statusSet = new Set(statusOptions);
-        const lastStepSet = new Set(lastStepOptions);
-        const modalitySet = new Set(modalitiesOptions);
-        if (!statusSet.has(status)) {
-            return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
-        }
-        if (!lastStepSet.has(lastStep)) {
-            return NextResponse.json({ error: 'Invalid last_step' }, { status: 400 });
-        }
-        if (modality !== null && !modalitySet.has(modality)) {
-            return NextResponse.json({ error: 'Invalid modality' }, { status: 400 });
-        }
+        // Validate against field_values in DB
+        const db = await openDb();
+        const existsById = (type: 'status'|'last_step'|'modality', id?: number | null) => {
+            if (id == null) return type === 'modality'; // modality can be null
+            if (!Number.isInteger(id)) return false;
+            const row = db.prepare(`SELECT id FROM field_values WHERE type = ? AND id = ? AND is_active = 1`).get(type, id) as { id: number } | undefined;
+            return !!row;
+        };
+        if (!existsById('status', status)) return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+        if (!existsById('last_step', lastStep)) return NextResponse.json({ error: 'Invalid last_step' }, { status: 400 });
+        if (modality !== null && !existsById('modality', modality)) return NextResponse.json({ error: 'Invalid modality' }, { status: 400 });
 
         if (!isValidDate(appliedOnRaw)) {
             return NextResponse.json({ error: 'Invalid applied_on date' }, { status: 400 });

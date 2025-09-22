@@ -9,9 +9,9 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import Grid from '@mui/material/Grid2';
 import * as React from 'react';
 
-import { Application } from '../types';
+import { Application, FieldValue } from '../types';
 import MenuItem from '@mui/material/MenuItem';
-import { lastStepOptions, statusOptions, modalitiesOptions } from '../constants/constants';
+// Options now come from /api/values instead of constants
 import { formatDate, parseDate } from '../lib/utils';
 
 const box_style = {
@@ -34,6 +34,11 @@ export default function AddApplicationModal(
     const [snackbar, setSnackbar] = useState<Pick<AlertProps, 'children' | 'severity'> | null>(null);
     const [files, setFiles] = useState<File[]>([]);
 
+    const [statusOptions, setStatusOptions] = useState<Array<{ value: number; label: string }>>([]);
+    const [lastStepOptions, setLastStepOptions] = useState<Array<{ value: number; label: string }>>([]);
+    const [modalitiesOptions, setModalitiesOptions] = useState<Array<{ value: number; label: string }>>([]);
+    const [optionsLoaded, setOptionsLoaded] = useState(false);
+
     const [application, setApplication] = useState<Omit<Application, 'id'>>({
         company: '',
         title: '',
@@ -41,12 +46,53 @@ export default function AddApplicationModal(
         applied_on: formatDate(new Date()),
         salary_min: null,
         salary_max: null,
-        modality: modalitiesOptions[0],
-        status: statusOptions[0],
-        last_step: lastStepOptions[0],
+    modality: null,
+    status: 0,
+    last_step: 0,
         last_updated: formatDate(new Date()),
         notes: '',
     });
+
+    React.useEffect(() => {
+        let cancelled = false;
+        const loadOptions = async () => {
+            try {
+                // Using shared FieldValue; only id and label are read here
+                const [stRaw, lsRaw, moRaw] = await Promise.all([
+                    fetch('/api/values?type=status').then((r) => r.json()),
+                    fetch('/api/values?type=last_step').then((r) => r.json()),
+                    fetch('/api/values?type=modality').then((r) => r.json()),
+                ]);
+                if (cancelled) return;
+                const st = stRaw as FieldValue[];
+                const ls = lsRaw as FieldValue[];
+                const mo = moRaw as FieldValue[];
+                // Only show active values in selects
+                const sOpts = st.filter(x => x.is_active === 1).map((x) => ({ value: x.id, label: x.label }));
+                const lOpts = ls.filter(x => x.is_active === 1).map((x) => ({ value: x.id, label: x.label }));
+                const mOpts = mo.filter(x => x.is_active === 1).map((x) => ({ value: x.id, label: x.label }));
+                setStatusOptions(sOpts);
+                setLastStepOptions(lOpts);
+                setModalitiesOptions(mOpts);
+                setOptionsLoaded(true);
+                // Set defaults if empty
+                setApplication((prev) => ({
+                    ...prev,
+                    status: prev.status || (sOpts[0]?.value ?? 0),
+                    last_step: prev.last_step || (lOpts[0]?.value ?? 0),
+                    modality: prev.modality ?? (mOpts[0]?.value ?? null),
+                }));
+            } catch {
+                // ignore
+            }
+        };
+        if (open && !optionsLoaded) {
+            loadOptions();
+        }
+        return () => {
+            cancelled = true;
+        };
+    }, [open, optionsLoaded]);
 
     const handleSubmit = async () => {
         if (
@@ -158,10 +204,10 @@ export default function AddApplicationModal(
                             <TextField label="Link" fullWidth margin="normal" value={application.link} onChange={(e) => handleChange('link', e.target.value)} />
                         </Grid>
                                     <Grid size={6}>
-                            <TextField label="Modality" select fullWidth margin="normal" value={application.modality} onChange={(e) => handleChange('modality', e.target.value)}>
+                            <TextField label="Modality" select fullWidth margin="normal" value={application.modality ?? ''} onChange={(e) => handleChange('modality', Number(e.target.value))} disabled={!optionsLoaded}>
                                 {modalitiesOptions.map((option) => (
-                                    <MenuItem key={option} value={option}>
-                                        {option}
+                                    <MenuItem key={option.value} value={option.value}>
+                                        {option.label}
                                     </MenuItem>
                                 ))}
                             </TextField>
@@ -179,19 +225,19 @@ export default function AddApplicationModal(
                             <TextField label="Applied On (dd-mm-yyyy)" fullWidth margin="normal" value={application.applied_on} onChange={(e) => handleChange('applied_on', e.target.value)} />
                         </Grid>
                                     <Grid size={6}>
-                            <TextField label="Status" select fullWidth margin="normal" value={application.status} onChange={(e) => handleChange('status', e.target.value)}>
+                            <TextField label="Status" select fullWidth margin="normal" value={application.status} onChange={(e) => handleChange('status', Number(e.target.value))} disabled={!optionsLoaded}>
                                 {statusOptions.map((option) => (
-                                    <MenuItem key={option} value={option}>
-                                        {option}
+                                    <MenuItem key={option.value} value={option.value}>
+                                        {option.label}
                                     </MenuItem>
                                 ))}
                             </TextField>
                         </Grid>
                                     <Grid size={6}>
-                            <TextField label="Last Step" select fullWidth margin="normal" value={application.last_step} onChange={(e) => handleChange('last_step', e.target.value)}>
+                            <TextField label="Last Step" select fullWidth margin="normal" value={application.last_step} onChange={(e) => handleChange('last_step', Number(e.target.value))} disabled={!optionsLoaded}>
                                 {lastStepOptions.map((option) => (
-                                    <MenuItem key={option} value={option}>
-                                        {option}
+                                    <MenuItem key={option.value} value={option.value}>
+                                        {option.label}
                                     </MenuItem>
                                 ))}
                             </TextField>
@@ -244,7 +290,7 @@ export default function AddApplicationModal(
                                 <Button onClick={onClose} sx={{ mr: 1 }}>
                                     Cancel
                                 </Button>
-                                <Button variant="contained" onClick={handleSubmit}>
+                                <Button variant="contained" onClick={handleSubmit} disabled={!optionsLoaded}>
                                     Save
                                 </Button>
                             </Box>

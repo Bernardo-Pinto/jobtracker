@@ -21,16 +21,18 @@ export async function openDb(): Promise<Database> {
 // Fetch all Applications
 export async function getApplications(): Promise<Application[]> {
     const db = await openDb();
-            const rows = db.prepare(
-                    `SELECT * FROM applications
-                     ORDER BY
-                         CASE status
-                             WHEN 'Needs action' THEN 0
-                             WHEN 'Waiting' THEN 1
-                             ELSE 2
-                         END,
-                         last_updated DESC`
-            ).all() as Array<{
+    const rows = db.prepare(
+    `SELECT a.id, a.company, a.title, a.link, a.applied_on, a.salary_min, a.salary_max,
+        a.modality_id AS modality, a.status_id AS status, a.last_step_id AS last_step,
+        a.last_updated, a.notes,
+        st.priority_group, st.sort_order
+     FROM applications a
+     LEFT JOIN field_values st ON st.id = a.status_id AND st.type = 'status'
+         ORDER BY
+           CASE st.priority_group WHEN 'needs_action' THEN 1 WHEN 'waiting' THEN 2 ELSE 3 END,
+           st.sort_order ASC,
+           a.last_updated DESC`
+    ).all() as Array<{
         id: number;
         company: string;
         title: string;
@@ -38,13 +40,12 @@ export async function getApplications(): Promise<Application[]> {
         applied_on: string;
         salary_min: number | null;
         salary_max: number | null;
-        modality: string | null;
-        status: string;
-        last_step: string;
+    modality: number | null;
+    status: number | null;
+    last_step: number | null;
         last_updated: string;
         notes: string;
     }>;
-    // Coerce integer docs_sent (0/1) to boolean for the Application type
     return rows.map((r) => ({
         id: r.id,
         company: r.company,
@@ -54,8 +55,8 @@ export async function getApplications(): Promise<Application[]> {
         salary_min: r.salary_min,
         salary_max: r.salary_max,
     modality: r.modality,
-        status: r.status,
-        last_step: r.last_step,
+    status: r.status ?? 0,
+    last_step: r.last_step ?? 0,
         last_updated: r.last_updated,
         notes: r.notes,
     }));
@@ -69,7 +70,7 @@ export async function addApplication(application: Application): Promise<number> 
         const db = await openDb();
 
     const info = db.prepare(`INSERT INTO applications 
-            (company, title, link, applied_on, salary_min, salary_max, modality, status, last_step, last_updated, notes) 
+            (company, title, link, applied_on, salary_min, salary_max, modality_id, status_id, last_step_id, last_updated, notes) 
             VALUES (?,?,?,?,?,?,?,?,?,?,?)`).run(
             application.company,
             application.title,
@@ -97,6 +98,7 @@ export async function addApplication(application: Application): Promise<number> 
 // Update an existing application
 export async function updateApplication(application: Application): Promise<void> {
     const db = await openDb();
+
     db.prepare(
         `UPDATE applications SET
             company = ?,
@@ -105,9 +107,9 @@ export async function updateApplication(application: Application): Promise<void>
             applied_on = ?,
             salary_min = ?,
             salary_max = ?,
-            modality = ?,
-            status = ?,
-            last_step = ?,
+            modality_id = ?,
+            status_id = ?,
+            last_step_id = ?,
             last_updated = ?,
             notes = ?
         WHERE id = ?`
@@ -118,10 +120,10 @@ export async function updateApplication(application: Application): Promise<void>
         application.applied_on,
         application.salary_min,
         application.salary_max,
-        application.modality,
-        application.status,
-        application.last_step,
-        new Date().toISOString(), // Update last_updated to the current time
+    application.modality,
+    application.status,
+    application.last_step,
+        new Date().toISOString(),
         application.notes,
         application.id,
     );
