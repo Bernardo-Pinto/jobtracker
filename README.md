@@ -109,7 +109,7 @@ jobtracker/
    docker run -p 3000:3000 jobtracker
    ```
 
-### Persisting the SQLite database across updates (recommended)
+### Persisting the SQLite database across updates
 
 This app is configured to store the SQLite DB on a Docker volume so your data survives image upgrades and container restarts.
 
